@@ -1,0 +1,104 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            // "label": "build debug",
+            "label": "build emunes",
+            "type": "process",
+            "command": "make",
+            "args": [
+                "PLATFORM=PLATFORM_DESKTOP",
+                "BUILD_MODE=DEBUG"
+                // "PROJECT_NAME=${fileBasenameNoExtension}",
+                // "OBJS=${fileBasenameNoExtension}.c"
+            ],
+            "windows": {
+                "command": "mingw32-make.exe",
+                "args": [
+                    "RAYLIB_PATH=C:/raylib/raylib",
+                    // "PROJECT_NAME=Emunes",
+                    "OBJS= $(filter-out debugger.cpp,$(wildcard *.cpp))",
+                    "BUILD_MODE=DEBUG"
+                ]
+            },
+            "osx": {
+                "args": [
+                    "RAYLIB_PATH=<path_to_raylib>/raylib",
+                    "PROJECT_NAME=${fileBasenameNoExtension}",
+                    "OBJS=${fileBasenameNoExtension}.c",
+                    "BUILD_MODE=DEBUG"
+                ]
+            },
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            // "label": "build debug",
+            "label": "build debugger",
+            "type": "process",
+            "command": "make -f MakefileDebugger",
+            "args": [
+                "PLATFORM=PLATFORM_DESKTOP",
+                "BUILD_MODE=DEBUG"
+                // "PROJECT_NAME=${fileBasenameNoExtension}",
+                // "OBJS=${fileBasenameNoExtension}.c"
+            ],
+            "windows": {
+                "command": "mingw32-make.exe",
+                "args": [
+                    "RAYLIB_PATH=C:/raylib/raylib",
+                    "PROJECT_NAME=debugger",
+                    "OBJS=debugger.cpp pipes.cpp",
+                    "BUILD_MODE=DEBUG"
+                ]
+            },
+            "osx": {
+                "args": [
+                    "RAYLIB_PATH=<path_to_raylib>/raylib",
+                    "PROJECT_NAME=${fileBasenameNoExtension}",
+                    "OBJS=${fileBasenameNoExtension}.c",
+                    "BUILD_MODE=DEBUG"
+                ]
+            },
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "build debug",
+            "dependsOn": ["build emunes", "build debugger"]
+        },
+        {
+            "label": "build release",
+            "type": "process",
+            "command": "make",
+            "args": [
+                "PLATFORM=PLATFORM_DESKTOP",
+                "PROJECT_NAME=EMUNES",
+                "OBJS=*.cpp"
+            ],
+            "windows": {
+                "command": "mingw32-make.exe",
+                "args": [
+                    "RAYLIB_PATH=C:/raylib/raylib",
+                    "PROJECT_NAME=EMUNES",
+                    "OBJS=*.cpp"
+                ]
+            },
+            "osx": {
+                "args": [
+                    "RAYLIB_PATH=<path_to_raylib>/raylib",
+                    "PROJECT_NAME=${fileBasenameNoExtension}",
+                    "OBJS=${fileBasenameNoExtension}.c"
+                ]
+            },
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        }
+    ]
+}
