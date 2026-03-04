@@ -2,6 +2,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "cpu.hpp"
+#include "rayWindows.hpp"
+#include <boost/interprocess/shared_memory_object.hpp>
+#include <boost/interprocess/mapped_region.hpp>
+#include "sharedDataMemory.hpp"
+
+using namespace boost::interprocess;
+
+bool rayWindow_Main = true;
+bool rayWindow_Debugger = false;
 
 #define MAX(a, b) ((a)>(b)? (a) : (b))
 #define MIN(a, b) ((a)<(b)? (a) : (b))
@@ -3148,11 +3157,95 @@ void Emulator::Initialize(const char* file){
     }
 }
 
+shared_memory_buffer * data;
+
 void Emulator::Cycle(){
     cpu.EmulateCycle();
+    // if((ppu.scanlineDot == 24 && ppu.scanlineRow == 32) && ((ppu.ppumask & PPU_FLAGS::BACKGROUND_ENABLE_BIT_3) == BACKGROUND_ENABLE_BIT_3
+    //         || (ppu.ppumask & PPU_FLAGS::SPRITE_ENABLE_BIT_4) == SPRITE_ENABLE_BIT_4)){
+    //             data->nempty.wait();
+    //             data->mutex.wait();
+                
+    //             data->debugger.pc = emulator.cpu.pc;
+    //             data->debugger.x = emulator.cpu.registerX;
+    //             data->debugger.y = emulator.cpu.registerY;
+    //             data->debugger.a = emulator.cpu.accumulator;
+    //             data->debugger.ppuDot = emulator.ppu.scanlineDot;
+    //             data->debugger.ppuScanline = emulator.ppu.scanlineRow;
+    //             data->mutex.post();
+    //             data->nstored.post();
+                
+    //             printf("termine\n");
+    //             int stopValue = data->commandMain;
+    //             while (data->commandMain == stopValue){}
+    //             printf("sali\n");
+        
+    // }
     ppu.EmulateCycle();
+    // if((ppu.scanlineDot == 24 && ppu.scanlineRow == 32) && ((ppu.ppumask & PPU_FLAGS::BACKGROUND_ENABLE_BIT_3) == BACKGROUND_ENABLE_BIT_3
+    //         || (ppu.ppumask & PPU_FLAGS::SPRITE_ENABLE_BIT_4) == SPRITE_ENABLE_BIT_4)){
+    //             data->nempty.wait();
+    //             data->mutex.wait();
+                
+    //             data->debugger.pc = emulator.cpu.pc;
+    //             data->debugger.x = emulator.cpu.registerX;
+    //             data->debugger.y = emulator.cpu.registerY;
+    //             data->debugger.a = emulator.cpu.accumulator;
+    //             data->debugger.ppuDot = emulator.ppu.scanlineDot;
+    //             data->debugger.ppuScanline = emulator.ppu.scanlineRow;
+    //             data->mutex.post();
+    //             data->nstored.post();
+                
+    //             printf("termine\n");
+    //             int stopValue = data->commandMain;
+    //             while (data->commandMain == stopValue){}
+    //             printf("sali\n");
+        
+    // }
     ppu.EmulateCycle();
+    
+    // if((ppu.scanlineDot == 24 && ppu.scanlineRow == 32) && ((ppu.ppumask & PPU_FLAGS::BACKGROUND_ENABLE_BIT_3) == BACKGROUND_ENABLE_BIT_3
+    //         || (ppu.ppumask & PPU_FLAGS::SPRITE_ENABLE_BIT_4) == SPRITE_ENABLE_BIT_4)){
+    //             data->nempty.wait();
+    //             data->mutex.wait();
+                
+    //             data->debugger.pc = emulator.cpu.pc;
+    //             data->debugger.x = emulator.cpu.registerX;
+    //             data->debugger.y = emulator.cpu.registerY;
+    //             data->debugger.a = emulator.cpu.accumulator;
+    //             data->debugger.ppuDot = emulator.ppu.scanlineDot;
+    //             data->debugger.ppuScanline = emulator.ppu.scanlineRow;
+    //             data->mutex.post();
+    //             data->nstored.post();
+                
+    //             printf("termine\n");
+    //             int stopValue = data->commandMain;
+    //             while (data->commandMain == stopValue){}
+    //             printf("sali\n");
+        
+    // }
     ppu.EmulateCycle();
+    
+    // if((ppu.scanlineDot == 24 && ppu.scanlineRow == 32) && ((ppu.ppumask & PPU_FLAGS::BACKGROUND_ENABLE_BIT_3) == BACKGROUND_ENABLE_BIT_3
+    //         || (ppu.ppumask & PPU_FLAGS::SPRITE_ENABLE_BIT_4) == SPRITE_ENABLE_BIT_4)){
+    //             data->nempty.wait();
+    //             data->mutex.wait();
+                
+    //             data->debugger.pc = emulator.cpu.pc;
+    //             data->debugger.x = emulator.cpu.registerX;
+    //             data->debugger.y = emulator.cpu.registerY;
+    //             data->debugger.a = emulator.cpu.accumulator;
+    //             data->debugger.ppuDot = emulator.ppu.scanlineDot;
+    //             data->debugger.ppuScanline = emulator.ppu.scanlineRow;
+    //             data->mutex.post();
+    //             data->nstored.post();
+                
+    //             printf("termine\n");
+    //             int stopValue = data->commandMain;
+    //             while (data->commandMain == stopValue){}
+    //             printf("sali\n");
+        
+    // }
 }
 
 RenderTexture2D target;
@@ -3163,6 +3256,9 @@ int main(int argc, char const *argv[])
 {
     // Initialization
     //--------------------------------------------------------------------------------------
+    if(CreateMainWindow() == 1){
+        return 1;
+    }
     const int screenWidth = 256*4;// 800;
     const int screenHeight = 240*4;//480*1.5f;
 
@@ -3189,10 +3285,158 @@ int main(int argc, char const *argv[])
     RenderTexture2D target = LoadRenderTexture(256, 240);
     SetTextureFilter(target.texture, TEXTURE_FILTER_POINT);
     int contador = 0;
+    unsigned int command = 1;
+
+    //Remove shared memory on construction and destruction
+    struct shm_remove
+    {
+        shm_remove() { shared_memory_object::remove("MyName"); }
+        ~shm_remove(){ shared_memory_object::remove("MyName"); }
+    } remover;
+
+    //Create a shared memory object.
+    shared_memory_object shm
+        ( create_only                 //only create
+        , "MyName" //name
+        , read_write                  //read-write mode
+        );
+
+    //Set size
+    shm.truncate(sizeof(shared_memory_buffer));
+
+    //Map the whole shared memory in this process
+    mapped_region region
+        (shm                       //What to map
+        ,read_write //Map it as read-write
+        );
+
+    //Get the address of the mapped region
+    void * addr       = region.get_address();
+
+    //Construct the shared structure in memory
+    data = new (addr) shared_memory_buffer;
+
+    data->commandMain = 1;
     // Main game loop
     while (!WindowShouldClose())    // Detect window close button or ESC key
     {
-        // pipeServerRead();
+        // data->items[0]
+        
+        if(rayWindow_Debugger == false){
+            rayWindow_Debugger = true;
+           
+            data->nempty.wait();
+            data->mutex.wait();
+            
+            printf("main\n");
+            OpenWindow();
+            data->mutex.post();
+            data->nstored.post();
+        }
+
+        if(data->commandMain == 1){
+            
+            data->nempty.wait();
+            data->mutex.wait();
+            data->debugger.pc = emulator.cpu.pc;
+            data->debugger.x = emulator.cpu.registerX;
+            data->debugger.y = emulator.cpu.registerY;
+            data->debugger.a = emulator.cpu.accumulator;
+            data->debugger.ppuDot = emulator.ppu.scanlineDot;
+            data->debugger.ppuScanline = emulator.ppu.scanlineRow;
+            
+            data->commandMain = 0;
+            data->mutex.post();
+            data->nstored.post();
+        }else if(data->commandMain == 2){
+            
+            data->nempty.wait();
+            data->mutex.wait();
+            
+            data->debugger.pc = emulator.cpu.pc;
+            data->debugger.x = emulator.cpu.registerX;
+            data->debugger.y = emulator.cpu.registerY;
+            data->debugger.a = emulator.cpu.accumulator;
+            data->debugger.ppuDot = emulator.ppu.scanlineDot;
+            data->debugger.ppuScanline = emulator.ppu.scanlineRow;
+            data->mutex.post();
+            data->nstored.post();
+            
+            printf("termine\n");
+            while (data->commandMain == 2){}
+            printf("sali\n");
+        } else if(data->commandMain == 3 || data->commandMain == 4){
+            
+            if (data->debugger.pc != emulator.cpu.pc){
+                data->nempty.wait();
+                data->mutex.wait();
+                
+                data->debugger.pc = emulator.cpu.pc;
+                data->debugger.x = emulator.cpu.registerX;
+                data->debugger.y = emulator.cpu.registerY;
+                data->debugger.a = emulator.cpu.accumulator;
+                data->debugger.ppuDot = emulator.ppu.scanlineDot;
+                data->debugger.ppuScanline = emulator.ppu.scanlineRow;
+                data->mutex.post();
+                data->nstored.post();
+                
+                printf("termine\n");
+                int stopValue = data->commandMain;
+                while (data->commandMain == stopValue){}
+                printf("sali\n");
+            }
+        }
+        // printf("post\n");
+        // printf("pc: 0x%x\n",emulator.cpu.pc);
+        // if(rayWindow_Debugger == false){
+        //     rayWindow_Debugger = true;
+        //     OpenWindow();
+        //     int contdeb=0;
+        //     while (ReceiveFromOthers(command) == 1)
+        //     {
+        //         if(contdeb < 10){
+        //         printf("no abrio\n");
+        //         contdeb++;                    
+        //         }
+        //     }
+        //     command = 1;
+        //     printf("sali de openwindo\n");
+        // }
+        // if(command == 0){
+        //     // printf("recibiendo, pc: 0x%x\n",emulator.cpu.pc);
+        //     ReceiveFromOthers(command);
+        // }else if(command == 1){
+        //     printf("pc: 0x%x\n",emulator.cpu.pc);
+        //     size_t size = 24;
+        //     std::string data(size,'\0');
+        //     // data.resize(24);
+            
+        //     memcpy(&data[0], &emulator.cpu.pc, sizeof(emulator.cpu.pc));
+        //     memcpy(&data[2], &emulator.cpu.registerX, sizeof(emulator.cpu.registerX));
+        //     memcpy(&data[3], &emulator.cpu.registerY, sizeof(emulator.cpu.registerY));
+        //     // printf("data size: %d\n",data.size());
+        //     for(int i=0; i<data.size();i++){
+        //         printf("[%d]: 0x%x\n",i,data[i]);
+        //     }
+        //     // printf("string : 0x%x\n",data);
+        //     printf("string 0: 0x%x\n",data[0]);
+        //     printf("string 1: 0x%x\n",data[1]);
+        //     printf("string 2: 0x%x\n",data[2]);
+        //     SendDebugger(data);
+        //     while (ReceiveFromOthers(command) == 1)
+        //     {
+        //     }
+            
+        //     command = 0;
+        // }else if(command == 2){
+        //     size_t size = 24;
+        //     std::string data(size,'\0');
+        //     // data.resize(24);
+            
+        //     memcpy(&data[0], &emulator.cpu.pc, sizeof(emulator.cpu.pc));
+        //     SendDebugger(data);
+        //     command = 0;
+        // }
         scale = MIN((float)GetScreenWidth()/gameScreenWidth, (float)GetScreenHeight()/gameScreenHeight);
         // Update
         //----------------------------------------------------------------------------------
@@ -3206,8 +3450,12 @@ int main(int argc, char const *argv[])
 
     // De-Initialization
     //--------------------------------------------------------------------------------------
-
+    CloseMainWindow();
     CloseWindow();          // Close window and OpenGL context
+    if(rayWindow_Debugger == true){
+        // closePipeClient();
+        closeDebuggerWindow();
+    }
     //--------------------------------------------------------------------------------------
 
     return 0;

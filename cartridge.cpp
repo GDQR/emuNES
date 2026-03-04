@@ -1,6 +1,6 @@
+#include <stdio.h>
 #include "cartridge.hpp"
 #include "cpu.hpp"
-#include <stdio.h>
 #include <stdlib.h>
 #include <string>
 

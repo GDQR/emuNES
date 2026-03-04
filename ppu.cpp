@@ -191,14 +191,14 @@ void PPU::EmulateCycle(){
         }
 
         // need the 337 to set new value to shift registers for "Donkey Kong", this need to be 0
-        if((scanlineDot >= 1 && scanlineDot <= 256) || (scanlineDot >= 321 && scanlineDot <= 337)){
+        if(/*(scanlineDot >= 1 && scanlineDot <= 256) ||*/ (scanlineDot >= 321 && scanlineDot <= 338)){
             if((ppumask & PPU_FLAGS::BACKGROUND_ENABLE_BIT_3) == BACKGROUND_ENABLE_BIT_3
                 || (ppumask & PPU_FLAGS::SPRITE_ENABLE_BIT_4) == SPRITE_ENABLE_BIT_4){
                 TileFetch();
             }
         }
 
-        if ((scanlineDot > 0 && scanlineDot <= 257) || (scanlineDot > 320 && scanlineDot <= 336)){
+        if (/*(scanlineDot > 0 && scanlineDot <= 257) ||*/ (scanlineDot > 320 && scanlineDot <= 336)){
             if((ppumask & PPU_FLAGS::BACKGROUND_ENABLE_BIT_3) == BACKGROUND_ENABLE_BIT_3
                 || (ppumask & PPU_FLAGS::SPRITE_ENABLE_BIT_4) == SPRITE_ENABLE_BIT_4){
                 ShiftRegisterMoveBit();
@@ -245,8 +245,14 @@ void PPU::EmulateCycle(){
             }
         }
 
+        
+        if(scanlineDot>=4 && scanlineDot<=259){
+            RGBstruct pixel = SYSTEM_PALLETE_2C07[((paletteRAM[0x00 | pixel1]) & 0x3F)];                
+            pantalla[(scanlineDot-4)+scanlineRow*256] = pixel;
+
+        }
         // render pixel
-        if(scanlineDot >= 4 && scanlineDot <=259){
+        if(scanlineDot >= 0 && scanlineDot <=257){
             if((ppumask & PPU_FLAGS::BACKGROUND_ENABLE_BIT_3) == BACKGROUND_ENABLE_BIT_3
                 || (ppumask & PPU_FLAGS::SPRITE_ENABLE_BIT_4) == SPRITE_ENABLE_BIT_4){
 
@@ -274,22 +280,27 @@ void PPU::EmulateCycle(){
                 // |++--- Palette number from attributes
                 // +----- Background/Sprite select
                 char PaletteRAMAddress = (char)(Palette << 2 | pixelColor); // the Palette RAM address is determined by the palette and color we found.
-                
-                RGBstruct pixel = SYSTEM_PALLETE_2C07[((paletteRAM[0x00 | PaletteRAMAddress]) & 0x3F)];
+                pixel1 = pixel2;
+                pixel2 = pixel3;
+                // pixel3 = pixel4;
+                pixel3 = PaletteRAMAddress;
+                // RGBstruct pixel = SYSTEM_PALLETE_2C07[((paletteRAM[0x00 | PaletteRAMAddress]) & 0x3F)];
                 
                 // // // if(pixelColor != 0){
                 // // if(scanlineDot-4 == 21 && scanlineRow == 32){
                 // // if(PaletteRAMAddress == 2){
-                // if(scanlineDot-4 >=24 && scanlineDot-4 < 32 && scanlineRow == 33 && debugPalattechange>0x1F){
+                // // if(scanlineDot-4 >=24 && scanlineDot-4 < 32 && scanlineRow == 33 && debugPalattechange>0x1F){
+                // if(scanlineDot-4 >=0 && scanlineDot-4 <= 32 && scanlineRow == 32 && debugPalattechange>0x1F){
+                // if(scanlineRow == 32){
                 //     printf("pixel x,y: %d, %d\n",scanlineDot-4,scanlineRow);
-                //     // printf("low byte: 0x%x\n",shiftRegisterLowBytes);
-                //     // printf("high byte: 0x%x\n",shiftRegisterHighBytes);
+                //     printf("NT low byte: 0x%x\n",shiftRegisterLowBytes);
+                //     printf("NT high byte: 0x%x\n",shiftRegisterHighBytes);
                     
                 //     printf("color low byte: 0x%x\n",shiftRegisterAttribute1);
                 //     printf("color high byte: 0x%x\n",shiftRegisterAttribute2);
                 //     printf("pixel value: 0x%x\n",pixelColor);
                 //     printf("Palette value: 0x%x\n",Palette);
-                //     printf("PaletteRAMAddress value: 0x%x\n",PaletteRAMAddress);
+                //     printf("Palette Index: 0x%x\n",PaletteRAMAddress);
                 //     printf("final PaletteRAMAddress value: 0x%x\n",((paletteRAM[0x00 | PaletteRAMAddress] & 0x3F)));
                 //     // for(int i=0; i<0x1F;i++){
                 //     //     printf("palette[0x%x]: 0x%x\n",i,paletteRAM[i]);
@@ -302,13 +313,14 @@ void PPU::EmulateCycle(){
                 // }
 
                 // pantalla[(scanlineDot-4)+scanlineRow*256] = pixelColor;
-                pantalla[(scanlineDot-4)+scanlineRow*256] = pixel;
+                // pantalla[(scanlineDot-4)+scanlineRow*256] = pixel;
 
             }
         }
 
+
         // need the dot 337 to set new value to shift registers for "Donkey Kong", this need to be in dot 0
-        if((scanlineDot >= 1 && scanlineDot <= 259) || (scanlineDot>=321 && scanlineDot <= 337)){
+        if((scanlineDot >= 1 && scanlineDot <= 256) || (scanlineDot>=321 && scanlineDot <= 338)){
             if((ppumask & PPU_FLAGS::BACKGROUND_ENABLE_BIT_3) == BACKGROUND_ENABLE_BIT_3
                 || (ppumask & PPU_FLAGS::SPRITE_ENABLE_BIT_4) == SPRITE_ENABLE_BIT_4){
                 TileFetch();
@@ -347,6 +359,93 @@ void PPU::EmulateCycle(){
             int x = 0;
             int y = 0;
             int cont=0;
+            // pantalla[256*4].R = 255;
+            // pantalla[256*4].G = 0;
+            // pantalla[256*4].B = 0;
+            
+            // pantalla[256*4+1].R = 0;
+            // pantalla[256*4+1].G = 255;
+            // pantalla[256*4+1].B = 0;
+            
+            // pantalla[256*4+2].R = 0;
+            // pantalla[256*4+2].G = 0;
+            // pantalla[256*4+2].B = 255;
+
+            
+            // pantalla[256*4+3].R = 255;
+            // pantalla[256*4+3].G = 0;
+            // pantalla[256*4+3].B = 0;
+            
+            // pantalla[256*4*8+4].R = 0;
+            // pantalla[256*4*8+4].G = 255;
+            // pantalla[256*4*8+4].B = 0;
+            
+            // pantalla[256*4+5].R = 0;
+            // pantalla[256*4+5].G = 0;
+            // pantalla[256*4+5].B = 255;
+
+            // pantalla[256*4+6].R = 255;
+            // pantalla[256*4+6].G = 0;
+            // pantalla[256*4+6].B = 0;
+            
+            // pantalla[256*4+7].R = 0;
+            // pantalla[256*4+7].G = 255;
+            // pantalla[256*4+7].B = 0;
+            
+            // pantalla[256*4*8+8].R = 0;
+            // pantalla[256*4*8+8].G = 0;
+            // pantalla[256*4*8+8].B = 255;
+
+            // pantalla[256*4*8+9].R = 255;
+            // pantalla[256*4*8+9].G = 0;
+            // pantalla[256*4*8+9].B = 0;
+            
+            // pantalla[256*4*8+10].R = 0;
+            // pantalla[256*4*8+10].G = 255;
+            // pantalla[256*4*8+10].B = 0;
+            
+            // pantalla[256*4*8+11].R = 0;
+            // pantalla[256*4*8+11].G = 0;
+            // pantalla[256*4*8+11].B = 255;
+
+            // pantalla[256*4*8+12].R = 255;
+            // pantalla[256*4*8+12].G = 0;
+            // pantalla[256*4*8+12].B = 0;
+            
+            // pantalla[256*4*8+13].R = 0;
+            // pantalla[256*4*8+13].G = 255;
+            // pantalla[256*4*8+13].B = 0;
+            
+            // pantalla[256*4*8+14].R = 0;
+            // pantalla[256*4*8+14].G = 0;
+            // pantalla[256*4*8+14].B = 255;
+
+            // pantalla[(256*4*8)+15].R = 255;
+            // pantalla[(256*4*8)+15].G = 0;
+            // pantalla[(256*4*8)+15].B = 0;
+            
+            // pantalla[(256*4*8)+16].R = 0;
+            // pantalla[(256*4*8)+16].G = 255;
+            // pantalla[(256*4*8)+16].B = 0;
+            
+            // pantalla[(256*4*8)+17].R = 0;
+            // pantalla[(256*4*8)+17].G = 0;
+            // pantalla[(256*4*8)+17].B = 255;
+
+            int scrX =0;
+            int scrY =0;
+            for(int i=0; i< 61440;i++){
+                if(scrX % 8 == 0 || scrY %8 == 8){
+                    pantalla[i].R = 255;
+                    pantalla[i].G = 255;
+                    pantalla[i].B = 255;
+                }
+                scrX++;
+                if(scrX>=256){
+                    scrX = 0;
+                    scrY++;
+                }
+            }
             for(int i=0; i< 61440;i++){
 
                 // DrawText(TextFormat("%02x",pantalla[i]),x,y,8,BEIGE);
@@ -501,6 +600,7 @@ unsigned short PPU::MirroringAddress(unsigned short Address)
 }
 
 
+unsigned char debugAttribute=0;
 
 void PPU::TileFetch(){
     // 8 cycles
@@ -542,6 +642,15 @@ void PPU::TileFetch(){
         // printf("registerV: 0x%X\n",registerV);
 
         ppuBus = (unsigned char)(ppuAddress & 0x00FF);
+
+        // if((debugAttribute != attributeColor) && debugPalattechange > 0x1F){
+        // if(scanlineRow<32 || scanlineRow == 261){
+        //     printf("pixel x,y: %d, %d\n",scanlineDot,scanlineRow);
+        //     printf("nametable pixelRegister LB: 0x%x\n",shiftRegisterLowBytes);
+        //     printf("nametable pixelRegister HB: 0x%x\n",shiftRegisterHighBytes);
+        //     printf("\n");
+        // }
+
         // printf("nametable address: 0x%X\n",ppuAddress);
         // printf("coarse x,y: %d,%d\n",(registerV & 0x001F),((registerV & 0x03E0)>>5));
         // nametableTest = FetchPPU(ppuAddress);
@@ -566,6 +675,13 @@ void PPU::TileFetch(){
         ppuAddress = (unsigned short)(0x23C0 | (registerV & 0x0C00) | ((registerV >> 4) & 0x38) | ((registerV >> 2) & 0x07));
     }else if(actualCycle == 3){
         attributeColor = FetchPPU(ppuAddress);
+        // if((debugAttribute != attributeColor) && debugPalattechange > 0x1F){
+        //     printf("pixel x,y: %d, %d\n",scanlineDot,scanlineRow);
+        //     printf("nametable pixelRegister LB: 0x%x\n",shiftRegisterLowBytes);
+        //     printf("nametable pixelRegister HB: 0x%x\n",shiftRegisterHighBytes);
+        //     printf("attributeColor: 0x%x\n",attributeColor);
+        // }
+        debugAttribute = attributeColor;
     }else if(actualCycle == 4){
         // 3)Fetch the low-order byte of an 8x1 pixel sliver
         // of pattern table from $0000-$0FF7 or $1000-$1FF7.
@@ -630,6 +746,17 @@ void PPU::TileFetch(){
     }
 
 
+    // if(scanlineRow<=33 || scanlineRow == 261){
+    // if(scanlineRow>=31 || scanlineRow == 261){
+    
+    //     printf("fetch pixel x,y: %d, %d\n",scanlineDot,scanlineRow);
+    //     printf("nametable pixelRegister LB: 0x%x\n",shiftRegisterLowBytes);
+    //     printf("nametable pixelRegister HB: 0x%x\n",shiftRegisterHighBytes);
+    //     printf("\n");
+    // }
+    // if(scanlineRow == 32){
+    //     printf("\n");
+    // }
 
     // 5)Turn the attribute data and the pattern table data into palette indices, and combine them with data from sprite data using priority.
     // https://www.nesdev.org/wiki/PPU_sprite_evaluati

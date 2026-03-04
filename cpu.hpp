@@ -249,14 +249,18 @@ struct PPU
     unsigned char registerX; // Fine X scroll
     bool registerW; // First or second write toggle
     bool useCHRRAM;
-    unsigned short shiftRegisterLowBytes; // Fetch pixels
-    unsigned short shiftRegisterHighBytes; // Fetch pixels
+    unsigned short shiftRegisterLowBytes; // Fetch pixels 8x1 from 2 tiles
+    unsigned short shiftRegisterHighBytes; // Fetch pixels 8x1 from 2 tiles
     unsigned char latchRegisterAttribute; // Fetch 2 bits
     unsigned char shiftRegisterAttribute1;
     unsigned char shiftRegisterAttribute2;
     unsigned char tileLSB;
     unsigned char tileHSB;
     unsigned char tileValue;
+    unsigned char pixel1;
+    unsigned char pixel2;
+    unsigned char pixel3;
+    unsigned char pixel4;
     unsigned char nametableByte; //only debug
     unsigned char attributeColor; // Save the Palette Color and is set in latchRegisterAttribute
     unsigned char paletteRAM[0x1F];
@@ -290,9 +294,6 @@ class Emulator{
     CPU6502 cpu;
     PPU ppu;
     Cartridge* game;
-    // RGBstruct screenData[256*240]; // this gives error in memory
-    // RGBstruct screenData[256][256];
-    // Image screen;
     void Initialize(const char* file);
     void Cycle();
     unsigned char Fetch(unsigned short address);
