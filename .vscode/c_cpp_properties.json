@@ -4,6 +4,7 @@
             "name": "Win32",
             "includePath": [
                 "C:/raylib/raylib/src/**",
+                "${BOOST_ROOT}/**",
                 "${workspaceFolder}/**"
             ],
             "defines": [
