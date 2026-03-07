@@ -160,7 +160,11 @@ void PPU::ClearFlag(SECTIONS6502 typeRegister, PPU_FLAGS clearFlag)
 RGBstruct pantalla[256*240];
 
 void PPU::ShiftRegisterMoveBit(){
-    if ((scanlineDot >= 1 && scanlineDot <= 257) || (scanlineDot >= 321 && scanlineDot <= 336)){ 
+    // https://forums.nesdev.org/viewtopic.php?t=10348
+    // "The shifters seem to shift between dots 2...257 and dots 322...337 (inclusive, with a shift on each of those dots).
+    // ... it wouldn't make sense for it to keep shifting after it fetches the second tile at the end of the line,
+    // since data for the first tile would be shifted out and lost then."
+    if ((scanlineDot >= 2 && scanlineDot <= 257) || (scanlineDot >= 322 && scanlineDot <= 337)){ 
         if((ppumask & PPU_FLAGS::BACKGROUND_ENABLE_BIT_3) == BACKGROUND_ENABLE_BIT_3
             || (ppumask & PPU_FLAGS::SPRITE_ENABLE_BIT_4) == SPRITE_ENABLE_BIT_4){
             // https://www.nesdev.org/wiki/PPU_rendering#Picture_region
@@ -170,8 +174,10 @@ void PPU::ShiftRegisterMoveBit(){
             // making the constant logically 0 for the low one.
             shiftRegisterLowBytes  = (unsigned short) ((shiftRegisterLowBytes  << 1) | 0);
             shiftRegisterHighBytes = (unsigned short) ((shiftRegisterHighBytes << 1) | 1);
+            // save only 2 bits from latchRegisterAttribute
             shiftRegisterAttribute1 = (unsigned char) ((shiftRegisterAttribute1 << 1) | (latchRegisterAttribute & 1)); // Set Bit 0 from latchRegisterAttribute
-            shiftRegisterAttribute2 = (unsigned char) ((shiftRegisterAttribute2 << 1) | ((latchRegisterAttribute & 10) >> 1)); // Set Bit 1 from latchRegisterAttribute
+            shiftRegisterAttribute2 = (unsigned char) ((shiftRegisterAttribute2 << 1) | ((latchRegisterAttribute & 3) >> 1)); // Set Bit 1 from latchRegisterAttribute
+            
         }
     }
 }
@@ -190,18 +196,13 @@ void PPU::EmulateCycle(){
             emulator.cpu.beforeNMI = false;
         }
 
+        ShiftRegisterMoveBit();
+
         // need the 337 to set new value to shift registers for "Donkey Kong", this need to be 0
         if(/*(scanlineDot >= 1 && scanlineDot <= 256) ||*/ (scanlineDot >= 321 && scanlineDot <= 338)){
             if((ppumask & PPU_FLAGS::BACKGROUND_ENABLE_BIT_3) == BACKGROUND_ENABLE_BIT_3
                 || (ppumask & PPU_FLAGS::SPRITE_ENABLE_BIT_4) == SPRITE_ENABLE_BIT_4){
                 TileFetch();
-            }
-        }
-
-        if (/*(scanlineDot > 0 && scanlineDot <= 257) ||*/ (scanlineDot > 320 && scanlineDot <= 336)){
-            if((ppumask & PPU_FLAGS::BACKGROUND_ENABLE_BIT_3) == BACKGROUND_ENABLE_BIT_3
-                || (ppumask & PPU_FLAGS::SPRITE_ENABLE_BIT_4) == SPRITE_ENABLE_BIT_4){
-                ShiftRegisterMoveBit();
             }
         }
 
@@ -238,21 +239,8 @@ void PPU::EmulateCycle(){
         // 5)Turn the attribute data and the pattern table data into palette indices, and combine them with data from sprite data using priority.
         // empieza el dibujo
 
-        if ((scanlineDot > 0 && scanlineDot <= 257) || (scanlineDot > 320 && scanlineDot <= 336)){
-            if((ppumask & PPU_FLAGS::BACKGROUND_ENABLE_BIT_3) == BACKGROUND_ENABLE_BIT_3
-                || (ppumask & PPU_FLAGS::SPRITE_ENABLE_BIT_4) == SPRITE_ENABLE_BIT_4){
-                ShiftRegisterMoveBit();
-            }
-        }
-
-        
-        if(scanlineDot>=4 && scanlineDot<=259){
-            RGBstruct pixel = SYSTEM_PALLETE_2C07[((paletteRAM[0x00 | pixel1]) & 0x3F)];                
-            pantalla[(scanlineDot-4)+scanlineRow*256] = pixel;
-
-        }
         // render pixel
-        if(scanlineDot >= 0 && scanlineDot <=257){
+        if(scanlineDot >= 1 && scanlineDot <=257){
             if((ppumask & PPU_FLAGS::BACKGROUND_ENABLE_BIT_3) == BACKGROUND_ENABLE_BIT_3
                 || (ppumask & PPU_FLAGS::SPRITE_ENABLE_BIT_4) == SPRITE_ENABLE_BIT_4){
 
@@ -282,7 +270,6 @@ void PPU::EmulateCycle(){
                 char PaletteRAMAddress = (char)(Palette << 2 | pixelColor); // the Palette RAM address is determined by the palette and color we found.
                 pixel1 = pixel2;
                 pixel2 = pixel3;
-                // pixel3 = pixel4;
                 pixel3 = PaletteRAMAddress;
                 // RGBstruct pixel = SYSTEM_PALLETE_2C07[((paletteRAM[0x00 | PaletteRAMAddress]) & 0x3F)];
                 
@@ -312,15 +299,23 @@ void PPU::EmulateCycle(){
                 //     // }
                 // }
 
-                // pantalla[(scanlineDot-4)+scanlineRow*256] = pixelColor;
-                // pantalla[(scanlineDot-4)+scanlineRow*256] = pixel;
-
             }
+        }
+
+        ShiftRegisterMoveBit();
+        
+        if(scanlineDot>=4 && scanlineDot<=259){
+            RGBstruct pixel = SYSTEM_PALLETE_2C07[((paletteRAM[0x00 | pixel1]) & 0x3F)];                
+            pantalla[(scanlineDot-4)+scanlineRow*256] = pixel;
+            // if(scanlineRow == 33 && debugPalattechange>0x1F){
+            // printf("Draw %d,%d: 0x%x\n",(scanlineDot-4),(scanlineRow),pixel1);
+
+            // }
         }
 
 
         // need the dot 337 to set new value to shift registers for "Donkey Kong", this need to be in dot 0
-        if((scanlineDot >= 1 && scanlineDot <= 256) || (scanlineDot>=321 && scanlineDot <= 338)){
+        if((scanlineDot >= 1 && scanlineDot <= 257) || scanlineDot==305 || (scanlineDot>=321 && scanlineDot <= 338)){
             if((ppumask & PPU_FLAGS::BACKGROUND_ENABLE_BIT_3) == BACKGROUND_ENABLE_BIT_3
                 || (ppumask & PPU_FLAGS::SPRITE_ENABLE_BIT_4) == SPRITE_ENABLE_BIT_4){
                 TileFetch();
@@ -359,79 +354,6 @@ void PPU::EmulateCycle(){
             int x = 0;
             int y = 0;
             int cont=0;
-            // pantalla[256*4].R = 255;
-            // pantalla[256*4].G = 0;
-            // pantalla[256*4].B = 0;
-            
-            // pantalla[256*4+1].R = 0;
-            // pantalla[256*4+1].G = 255;
-            // pantalla[256*4+1].B = 0;
-            
-            // pantalla[256*4+2].R = 0;
-            // pantalla[256*4+2].G = 0;
-            // pantalla[256*4+2].B = 255;
-
-            
-            // pantalla[256*4+3].R = 255;
-            // pantalla[256*4+3].G = 0;
-            // pantalla[256*4+3].B = 0;
-            
-            // pantalla[256*4*8+4].R = 0;
-            // pantalla[256*4*8+4].G = 255;
-            // pantalla[256*4*8+4].B = 0;
-            
-            // pantalla[256*4+5].R = 0;
-            // pantalla[256*4+5].G = 0;
-            // pantalla[256*4+5].B = 255;
-
-            // pantalla[256*4+6].R = 255;
-            // pantalla[256*4+6].G = 0;
-            // pantalla[256*4+6].B = 0;
-            
-            // pantalla[256*4+7].R = 0;
-            // pantalla[256*4+7].G = 255;
-            // pantalla[256*4+7].B = 0;
-            
-            // pantalla[256*4*8+8].R = 0;
-            // pantalla[256*4*8+8].G = 0;
-            // pantalla[256*4*8+8].B = 255;
-
-            // pantalla[256*4*8+9].R = 255;
-            // pantalla[256*4*8+9].G = 0;
-            // pantalla[256*4*8+9].B = 0;
-            
-            // pantalla[256*4*8+10].R = 0;
-            // pantalla[256*4*8+10].G = 255;
-            // pantalla[256*4*8+10].B = 0;
-            
-            // pantalla[256*4*8+11].R = 0;
-            // pantalla[256*4*8+11].G = 0;
-            // pantalla[256*4*8+11].B = 255;
-
-            // pantalla[256*4*8+12].R = 255;
-            // pantalla[256*4*8+12].G = 0;
-            // pantalla[256*4*8+12].B = 0;
-            
-            // pantalla[256*4*8+13].R = 0;
-            // pantalla[256*4*8+13].G = 255;
-            // pantalla[256*4*8+13].B = 0;
-            
-            // pantalla[256*4*8+14].R = 0;
-            // pantalla[256*4*8+14].G = 0;
-            // pantalla[256*4*8+14].B = 255;
-
-            // pantalla[(256*4*8)+15].R = 255;
-            // pantalla[(256*4*8)+15].G = 0;
-            // pantalla[(256*4*8)+15].B = 0;
-            
-            // pantalla[(256*4*8)+16].R = 0;
-            // pantalla[(256*4*8)+16].G = 255;
-            // pantalla[(256*4*8)+16].B = 0;
-            
-            // pantalla[(256*4*8)+17].R = 0;
-            // pantalla[(256*4*8)+17].G = 0;
-            // pantalla[(256*4*8)+17].B = 255;
-
             int scrX =0;
             int scrY =0;
             for(int i=0; i< 61440;i++){
@@ -447,20 +369,11 @@ void PPU::EmulateCycle(){
                 }
             }
             for(int i=0; i< 61440;i++){
-
-                // DrawText(TextFormat("%02x",pantalla[i]),x,y,8,BEIGE);
-                // if(pantalla[i] == 0){
-                //     DrawPixel(x,y,BLACK);
-                // }else{
-                //     DrawPixel(x,y,WHITE);
-                // }
                 DrawPixel(x,y,Color{pantalla[i].R,pantalla[i].G,pantalla[i].B,255});
-                // x+=12;
                 x++;
                 cont++;
                 if(cont == 256){
                     cont=0;
-                    // y+=9;
                     y++;
                     x=0;
                 }
@@ -475,31 +388,6 @@ void PPU::EmulateCycle(){
                             (Rectangle){ (GetScreenWidth() - ((float)gameScreenWidth*scale))*0.5f, (GetScreenHeight() - ((float)gameScreenHeight*scale))*0.5f,
                             (float)gameScreenWidth*scale, (float)gameScreenHeight*scale }, (Vector2){ 0, 0 }, 0.0f, WHITE);
             EndDrawing();
-            // BeginDrawing();
-            // ClearBackground(BLACK);
-            // int x = 0;
-            // int y = 0;
-            // int cont=0;
-            // for(int i=0; i< 61440;i++){
-
-            //     // DrawText(TextFormat("%02x",pantalla[i]),x,y,8,BEIGE);
-            //     // if(pantalla[i] == 0){
-            //     //     DrawPixel(x,y,BLACK);
-            //     // }else{
-            //     //     DrawPixel(x,y,WHITE);
-            //     // }
-            //     DrawPixel(x,y,Color{pantalla[i].R,pantalla[i].G,pantalla[i].B,255});
-            //     // x+=12;
-            //     x++;
-            //     cont++;
-            //     if(cont == 256){
-            //         cont=0;
-            //         // y+=9;
-            //         y++;
-            //         x=0;
-            //     }
-            // }
-            // EndDrawing();
         }
 
         scanlineDot++;
@@ -614,9 +502,11 @@ void PPU::TileFetch(){
     if(actualCycle == 0){
 
         // shift start in dot 9 
-        shiftRegisterLowBytes = (unsigned short) ((shiftRegisterLowBytes & 0xFF00) | tileLSB);
-        shiftRegisterHighBytes = (unsigned short) ((shiftRegisterHighBytes & 0xFF00) | tileHSB);
-        latchRegisterAttribute = attributeColor;
+        if(scanlineDot>=9){
+            shiftRegisterLowBytes = (unsigned short) ((shiftRegisterLowBytes & 0xFF00) | tileLSB);
+            shiftRegisterHighBytes = (unsigned short) ((shiftRegisterHighBytes & 0xFF00) | tileHSB);
+            latchRegisterAttribute = attributeColor;
+        }
     
         // Load registers: load the pixel byte from before
         // shiftRegisterLowBytes = (unsigned short)((shiftRegisterLowBytes & 0xFF00) | (registerT & 0x00FF));
@@ -667,14 +557,42 @@ void PPU::TileFetch(){
         // and increment the current VRAM address within the same row.
         // https://www.nesdev.org/wiki/PPU_scrolling#Tile_and_attribute_fetching
         // start in 0x23C0
-        // NN 1111 YYY XXX
-        // || |||| ||| +++-- high 3 bits of coarse X (x/4)
-        // || |||| +++------ high 3 bits of coarse Y (y/4)
-        // || ++++---------- attribute offset (960 bytes)
-        // ++--------------- nametable select
+        // 0xC00     0x38  0x7
+        // |---|    |----||---|
+        // |   |    |    ||   |
+        //  NN  1111 YYY   XXX
+        //  ||  |||| |||   +++-- high 3 bits of coarse X (x/4)
+        //  ||  |||| +++-------- high 3 bits of coarse Y (y/4)
+        //  ||  ++++------------ attribute offset (960 bytes)
+        //  ++------------------ nametable select
         ppuAddress = (unsigned short)(0x23C0 | (registerV & 0x0C00) | ((registerV >> 4) & 0x38) | ((registerV >> 2) & 0x07));
     }else if(actualCycle == 3){
         attributeColor = FetchPPU(ppuAddress);
+
+        // https://www.nesdev.org/wiki/PPU_attribute_tables
+        //  |---- Top left
+        //  3 1 - Top right
+        //  2 2 - Bottom right
+        //  |---- Bottom left
+        // value = (bottomright << 6) | (bottomleft << 4) | (topright << 2) | (topleft << 0)
+        //       = (2           << 6) | (2          << 4) | (1        << 2) | (3       << 0)
+        //       = $80                | $20               | $04             | $03
+        //       = $A7
+        // If this is on the right tile
+
+        // Use Coarse X from RegisterV (bits 4-0)
+        if ((registerV & 3) >= 2){
+            attributeColor = (attributeColor >> 2);
+        }
+        // If this is on the bottom tile
+        // Use Coarse Y from RegisterV (bits 9-5)
+        if ((((registerV & 0x3E0) >> 5) & 3) >= 2)
+        {
+            attributeColor = (attributeColor >> 4);
+        }
+        
+        // we only save 2 bits
+        attributeColor = (attributeColor & 3);
         // if((debugAttribute != attributeColor) && debugPalattechange > 0x1F){
         //     printf("pixel x,y: %d, %d\n",scanlineDot,scanlineRow);
         //     printf("nametable pixelRegister LB: 0x%x\n",shiftRegisterLowBytes);

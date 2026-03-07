@@ -50,7 +50,7 @@
                 "args": [
                     "RAYLIB_PATH=C:/raylib/raylib",
                     "PROJECT_NAME=debugger",
-                    "OBJS=debugger.cpp pipes.cpp",
+                    "OBJS=debugger.cpp",
                     "BUILD_MODE=DEBUG"
                 ]
             },

@@ -260,7 +260,6 @@ struct PPU
     unsigned char pixel1;
     unsigned char pixel2;
     unsigned char pixel3;
-    unsigned char pixel4;
     unsigned char nametableByte; //only debug
     unsigned char attributeColor; // Save the Palette Color and is set in latchRegisterAttribute
     unsigned char paletteRAM[0x1F];
