@@ -87,6 +87,10 @@ struct CPU6502
     bool beforeNMI = false;
     bool nmi;
     bool irq;
+    bool DMAactive = false;
+    unsigned char DMAAddress;
+    unsigned char DMAPage;
+    unsigned char oamBus;
     // unsigned char memory[memorySize];
     unsigned char RAM[RAM_SIZE];
     void Initialize();
@@ -217,6 +221,20 @@ struct SPRITE_MEMORY{
     unsigned char posX; // sprite X position
 };
 
+// OAM2 sprite buffer memory
+
+// The composition of one sprite buffer element here is: 2 8-bit shift 
+// registers (the fetched pattern table data is loaded in here, where it will 
+// be serialized at the appropriate time), a 3-bit latch (which holds the color 
+// & priority data for an object), and an 8-bit down counter (this is where the 
+// x coordinate is loaded).
+struct SPRITE_BUFFER_MEMORY{
+    unsigned char latchAttribute; // 3 bits
+    unsigned char posX;
+    unsigned char SRLowByte;
+    unsigned char SRHighByte;
+};
+
 struct PPU
 {
     PPURENDER_STATE renderState;
@@ -233,7 +251,7 @@ struct PPU
     unsigned char ppudata;
     unsigned char oamdma;
     unsigned char ppuBus;
-    unsigned char renderValue;
+    unsigned char ppuBusTop6Bits;
     unsigned char attributeValue;
     unsigned short ppuAddress;
     // Internal Registers. More info:
@@ -262,8 +280,22 @@ struct PPU
     unsigned char pixel3;
     unsigned char nametableByte; //only debug
     unsigned char attributeColor; // Save the Palette Color and is set in latchRegisterAttribute
-    unsigned char paletteRAM[0x1F];
-    SPRITE_MEMORY oamSprite[64]; // 64*4 = 256 bytes
+    unsigned char paletteRAM[0x20];
+    // SPRITE_MEMORY oamSprite[64]; // Primary OAM (Object Attribute Memory). 64*(4 bytes) = 256 bytes
+    unsigned char oam1[256]; // Primary OAM (Object Attribute Memory).
+    unsigned char oam2[32]; // Secondary OAM, save 8 OAM from 1 scanline.
+    unsigned char oam2Address;
+    unsigned char oamSpriteEvaluationData;
+    // The composition of one sprite buffer element here is: 2 8-bit shift 
+    // registers (the fetched pattern table data is loaded in here, where it will 
+    // be serialized at the appropriate time), a 3-bit latch (which holds the color 
+    // & priority data for an object), and an 8-bit down counter (this is where the 
+    // x coordinate is loaded).
+    SPRITE_BUFFER_MEMORY spriteBuffer[8];
+    bool HINV = false; // Flip sprite Horizontal
+    bool VINV = false; // Flip sprite Vertical https://github.com/emu-russia/breaks/blob/master/BreakingNESWiki_DeepL/PPU/par.md
+    unsigned char spriteTile; // Temporary for Sprite Fetch
+    unsigned char spriteY; // Temporary for Sprite Fetch
     unsigned char VRAM[PPU_SIZE];// maybe useless, instead use the ram from cartridge
     bool isEvenFrame =true;
     void Initialize();
@@ -271,15 +303,21 @@ struct PPU
     void Reset();
     void EmulateCycle();
     void ShiftRegisterMoveBit();
+    void ShiftRegisterSprite();
     unsigned char FetchPPU(unsigned short Address);
     unsigned short MirroringAddress(unsigned short Address);
     void TileFetch();
-    void GetPallete();
+    void SpriteFetch();
+    void GetSpriteAddress();
+    unsigned char FlipSpriteHorizontal(unsigned char b);
     void StorePPUData(unsigned char value, unsigned short Address);
     void StoreInPPU(unsigned char value, unsigned short address);
     void SetFlag(SECTIONS6502 typeRegister, PPU_FLAGS insertFlag);
     void ClearFlag(SECTIONS6502 typeRegister, PPU_FLAGS insertFlag);
 };
+
+
+extern char debugPalattechange;
 
 struct RGBstruct
 {

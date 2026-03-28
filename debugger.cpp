@@ -77,6 +77,7 @@ int main(int argc, char const *argv[])
             emulator.cpu.registerX = data->debugger.x;
             emulator.cpu.registerY = data->debugger.y;
             emulator.cpu.accumulator = data->debugger.a;
+            emulator.cpu.statusFlag = data->debugger.status;
             emulator.ppu.scanlineDot = data->debugger.ppuDot;
             emulator.ppu.scanlineRow = data->debugger.ppuScanline;
             data->commandDebugger = 1;
@@ -138,6 +139,11 @@ int main(int argc, char const *argv[])
             DrawText(TextFormat("Y: 0x%x",emulator.cpu.registerY), 190, 240, 20, LIGHTGRAY);
             DrawText(TextFormat("A: 0x%x",emulator.cpu.accumulator), 190, 260, 20, LIGHTGRAY);
             DrawText(TextFormat("PPU Dot,Scanline: 0x%x,0x%x",emulator.ppu.scanlineDot,emulator.ppu.scanlineRow), 190, 280, 20, LIGHTGRAY);
+            DrawText(TextFormat("Carry: 0x%x",(emulator.cpu.statusFlag & CPUFLAGS::CARRY)), 190, 300, 20, LIGHTGRAY);
+            DrawText(TextFormat("Zero: 0x%x",(emulator.cpu.statusFlag & CPUFLAGS::ZERO)), 190, 320, 20, LIGHTGRAY);
+            DrawText(TextFormat("Interrupt: 0x%x",(emulator.cpu.statusFlag & CPUFLAGS::INTERRUPT_DISABLE)), 190, 340, 20, LIGHTGRAY);
+            DrawText(TextFormat("Overflow: 0x%x",(emulator.cpu.statusFlag & CPUFLAGS::OVERFLOW)), 190, 360, 20, LIGHTGRAY);
+            DrawText(TextFormat("Negative: 0x%x",(emulator.cpu.statusFlag & CPUFLAGS::NEGATIVE)), 190, 380, 20, LIGHTGRAY);
 
         EndDrawing();
         //----------------------------------------------------------------------------------

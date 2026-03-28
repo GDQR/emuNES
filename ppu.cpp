@@ -25,6 +25,12 @@ void PPU::Initialize(){
     scanlineRow = 0;
     tileLSB = 0;
     tileHSB = 0;
+    for(int i=0;i<256;i++){
+        oam1[i] = 0xFF;
+    }
+    for(int i=0;i<32;i++){
+        oam2[i] = 0xFF;
+    }
     Power();
     // paletteRAM[0x00] = 0x09;
     // paletteRAM[0x01] = 0x01;
@@ -61,11 +67,11 @@ void PPU::Initialize(){
 }
 
 void PPU::Power(){
-    renderState = PPURENDER_STATE::PRE_RENDER;
+    renderState = PPURENDER_STATE::NORMAL_RENDER;
 
     // Screen Settings
-    scanlineDot = 321;
-    scanlineRow = 261;
+    scanlineDot = 0; 
+    scanlineRow = 0;
 
     // Registers
     ppuctrl = 0;
@@ -181,6 +187,31 @@ void PPU::ShiftRegisterMoveBit(){
         }
     }
 }
+
+void PPU::ShiftRegisterSprite(){
+    if(scanlineDot >=2 && scanlineDot <= 256){
+        // shift all 8 sprite shift registers.
+        int i = 0;
+        while (i < 8)
+        {
+            if (spriteBuffer[i].posX > 0)
+            {
+                spriteBuffer[i].posX--; // decrement the X position of all objects in secondary OAM. When this is zero, the ppu can draw it.
+            }
+            else
+            {
+                if((ppumask & PPU_FLAGS::BACKGROUND_ENABLE_BIT_3) == BACKGROUND_ENABLE_BIT_3
+                || (ppumask & PPU_FLAGS::SPRITE_ENABLE_BIT_4) == SPRITE_ENABLE_BIT_4){
+                    spriteBuffer[i].SRLowByte = (spriteBuffer[i].SRLowByte << 1); // shift 1 bit to the left.
+                    spriteBuffer[i].SRHighByte = (spriteBuffer[i].SRHighByte << 1); // shift 1 bit to the left.
+                }
+            }
+
+            i++;
+        }
+    }
+}
+
 char debugPalattechange = 0;
 void PPU::EmulateCycle(){
     // printf("ppu cycleCounter: 0x%X\n",cycleCounter);
@@ -193,6 +224,7 @@ void PPU::EmulateCycle(){
         if(scanlineDot == 1){ // Power ON or Reset
             ClearFlag(SECTIONS6502::PPUSTATUS, PPU_FLAGS::PPU_VBLANK);
             ClearFlag(SECTIONS6502::PPUSTATUS, PPU_FLAGS::PPU_SPRITEHIT);
+            ClearFlag(SECTIONS6502::PPUSTATUS, PPU_FLAGS::PPU_OVERFLOW);
             emulator.cpu.beforeNMI = false;
         }
 
@@ -240,7 +272,7 @@ void PPU::EmulateCycle(){
         // empieza el dibujo
 
         // render pixel
-        if(scanlineDot >= 1 && scanlineDot <=257){
+        if(scanlineDot >= 2 && scanlineDot <=257){
             if((ppumask & PPU_FLAGS::BACKGROUND_ENABLE_BIT_3) == BACKGROUND_ENABLE_BIT_3
                 || (ppumask & PPU_FLAGS::SPRITE_ENABLE_BIT_4) == SPRITE_ENABLE_BIT_4){
 
@@ -259,6 +291,8 @@ void PPU::EmulateCycle(){
                 char pal0 = (char)(((shiftRegisterAttribute1) >> (7 - registerX)) & 1); // take the bit from the shift register for the attribute low bit plane
                 char pal1 = (char)(((shiftRegisterAttribute2) >> (7 - registerX)) & 1); // take the bit from the shift register for the attribute high bit plane
                 char Palette = (char)((pal1 << 1) | pal0);
+
+                char backgroundPixelData = (Palette<<2) | pixelColor;
                 
                 // 4bit0
                 // -----
@@ -267,27 +301,93 @@ void PPU::EmulateCycle(){
                 // |||++- Pixel value from tile pattern data
                 // |++--- Palette number from attributes
                 // +----- Background/Sprite select
-                char PaletteRAMAddress = (char)(Palette << 2 | pixelColor); // the Palette RAM address is determined by the palette and color we found.
+                // char PaletteRAMAddress = (char)(Palette << 2 | pixelColor); // the Palette RAM address is determined by the palette and color we found.
+                // pixel1 = pixel2;
+                // pixel2 = pixel3;
+                // pixel3 = PaletteRAMAddress;
+
+                // RGBstruct pixel = SYSTEM_PALLETE_2C07[((paletteRAM[0x00 | PaletteRAMAddress]) & 0x3F)];
+                
+                int i = 0;
+                bool SpixelL = false;
+                bool SpixelH = false;
+                char spritePixelData = 0;
+                char SpritePalette = 0;
+                char SpriteColor = 0;
+                while (i<8 && SpixelL == false && SpixelH == false){
+                    if(spriteBuffer[i].posX == 0){
+                        if((spriteBuffer[i].SRLowByte & 0x80) == 0x80){
+                            SpixelL = true;
+                            SpriteColor=1;
+                        }
+                        if((spriteBuffer[i].SRHighByte & 0x80) == 0x80){
+                            SpixelH = true;
+                            SpriteColor |= 2;
+                        }
+                        SpriteColor = 0;
+                        if (SpixelL == true) { SpriteColor=1; spritePixelData = 1; }
+                        if (SpixelH == true) { SpriteColor |= 2; spritePixelData |= 2; }
+
+                        SpritePalette = ((spriteBuffer[i].latchAttribute & 0x03) | 0x04); // read the palette from secondary OAM attributes.
+                        spritePixelData |= ((spriteBuffer[i].latchAttribute<<2)) | 0x04;
+                    }
+                    i++;
+                }
+                
+                char debugSprite = (SpritePalette<<2) | SpriteColor;
+
+                // Sprite 0 hit
+                if(scanlineDot < 255 && (ppustatus & PPU_FLAGS::PPU_SPRITEHIT) == 0){
+                    if(SpriteColor != 0 && pixelColor != 0){
+                        SetFlag(SECTIONS6502::PPUSTATUS, PPU_FLAGS::PPU_SPRITEHIT);
+                    }
+                }else if(scanlineDot >= 2 && scanlineDot <= 8 && (ppumask & PPU_FLAGS::SPRITE_LEFT_COLUMN_BIT_2) == 0 && (ppumask & PPU_FLAGS::BACKGROUND_LEFT_COLUMN_BIT_1) == 0 && (ppustatus & PPU_FLAGS::PPU_SPRITEHIT) == 0){
+                    if(SpriteColor != 0 && pixelColor != 0){
+                        SetFlag(SECTIONS6502::PPUSTATUS, PPU_FLAGS::PPU_SPRITEHIT);
+                    }
+                }
+                // palette
+                // 4bit0
+                // -----
+                // SAAPP
+                // |||||
+                // |||++- Pixel value from tile pattern data
+                // |++--- Palette number from attributes
+                // +----- Background/Sprite select
+                char finalColor = backgroundPixelData;
+                if(pixelColor == 0 && SpriteColor != 0){
+                    finalColor = debugSprite;
+                }else if ((debugSprite & 0x3) != 0) // the background color isn't zero...
+                {
+                    if ((debugSprite & 0x10) == 0x10) // if the sprite has priority, always draw the sprite.
+                    {
+                        finalColor = debugSprite;
+                    }
+                }
+
+                // char PaletteRAMAddress = (char)(Palette << 2 | finalColor); // the Palette RAM address is determined by the palette and color we found.
                 pixel1 = pixel2;
                 pixel2 = pixel3;
-                pixel3 = PaletteRAMAddress;
-                // RGBstruct pixel = SYSTEM_PALLETE_2C07[((paletteRAM[0x00 | PaletteRAMAddress]) & 0x3F)];
+                pixel3 = finalColor;
                 
                 // // // if(pixelColor != 0){
                 // // if(scanlineDot-4 == 21 && scanlineRow == 32){
                 // // if(PaletteRAMAddress == 2){
                 // // if(scanlineDot-4 >=24 && scanlineDot-4 < 32 && scanlineRow == 33 && debugPalattechange>0x1F){
                 // if(scanlineDot-4 >=0 && scanlineDot-4 <= 32 && scanlineRow == 32 && debugPalattechange>0x1F){
-                // if(scanlineRow == 32){
-                //     printf("pixel x,y: %d, %d\n",scanlineDot-4,scanlineRow);
+                // if(((scanlineRow == 33 && scanlineDot <=35) || (scanlineRow == 32 /*&& scanlineDot>=321*/)) && debugPalattechange>0x1F){
+                //     // printf("pixel x,y: %d, %d\n",scanlineDot-4,scanlineRow);
+                //     printf("pixel x,y: %d, %d\n",scanlineDot,scanlineRow);
+                //     printf("registerX: 0x%x\n",registerX);
                 //     printf("NT low byte: 0x%x\n",shiftRegisterLowBytes);
                 //     printf("NT high byte: 0x%x\n",shiftRegisterHighBytes);
                     
+                //     printf("latchRegisterAttribute: 0x%x\n",latchRegisterAttribute);
                 //     printf("color low byte: 0x%x\n",shiftRegisterAttribute1);
                 //     printf("color high byte: 0x%x\n",shiftRegisterAttribute2);
                 //     printf("pixel value: 0x%x\n",pixelColor);
-                //     printf("Palette value: 0x%x\n",Palette);
-                //     printf("Palette Index: 0x%x\n",PaletteRAMAddress);
+                //     printf("Palette Index: 0x%x\n",Palette);
+                //     printf("Palette color index: 0x%x\n",PaletteRAMAddress);
                 //     printf("final PaletteRAMAddress value: 0x%x\n",((paletteRAM[0x00 | PaletteRAMAddress] & 0x3F)));
                 //     // for(int i=0; i<0x1F;i++){
                 //     //     printf("palette[0x%x]: 0x%x\n",i,paletteRAM[i]);
@@ -303,6 +403,7 @@ void PPU::EmulateCycle(){
         }
 
         ShiftRegisterMoveBit();
+        ShiftRegisterSprite();
         
         if(scanlineDot>=4 && scanlineDot<=259){
             RGBstruct pixel = SYSTEM_PALLETE_2C07[((paletteRAM[0x00 | pixel1]) & 0x3F)];                
@@ -321,6 +422,66 @@ void PPU::EmulateCycle(){
                 TileFetch();
             }
         }
+
+        if((ppumask & PPU_FLAGS::BACKGROUND_ENABLE_BIT_3) == BACKGROUND_ENABLE_BIT_3
+                || (ppumask & PPU_FLAGS::SPRITE_ENABLE_BIT_4) == SPRITE_ENABLE_BIT_4){
+
+            if(scanlineDot >= 1 && scanlineDot <=64){
+                if(scanlineDot == 1){
+                    oam2Address = 0;
+                }
+                if((scanlineDot & 1) == 0){
+                    oam2[oam2Address] = 0xFF;
+                    oam2Address++;
+                }
+            }else if(scanlineDot >= 65 && scanlineDot <= 256){
+                if(scanlineDot == 65){
+                    oam2Address = 0;
+                }
+                // odd cycle
+                if((scanlineDot & 1) == 1){
+                    // 1. Starting at n = 0, read a sprite's Y-coordinate
+                    // (OAM[n][0], copying it to the next open slot in secondary OAM
+                    // (unless 8 sprites have been found, in which case the write is ignored).
+                    // data go to the even cycle
+                    if(scanlineDot != 65 && oamaddr == 0){
+                        oamaddr = 4;
+                    }
+                    oamSpriteEvaluationData = oam1[oamaddr];
+
+                    if(oamaddr % 4 == 0){
+                        spriteY = false;
+                        
+                        if((scanlineRow & 0xFF) - oamSpriteEvaluationData >= 0 && (scanlineRow & 0xFF) - oamSpriteEvaluationData < ((ppuctrl & PPUCTRL) == PPUCTRL ? 16 : 8)){
+                            spriteY = true;
+                        }
+                    }
+
+                    oamaddr++; // 2. Increment n
+                }
+                // even cycle
+                else {
+
+                    // 3. Starting at m = 0, evaluate OAM[n][m] as a Y-coordinate.
+                    if(spriteY == true && oam2Address < 32){
+                        // if(oam2Address & 0x3 == 0x3){
+                        //     SetFlag(SECTIONS6502::PPUSTATUS, PPU_OVERFLOW);
+                        // }
+                        
+                        oam2[oam2Address] = oamSpriteEvaluationData;
+                        oam2Address++;
+                    }else{
+                        // oamaddr += 4;
+                        oamaddr +=3;
+                    }
+                    // not implemented
+                    // 4. Attempt (and fail) to copy OAM[n][0] into the next free slot in secondary OAM, and increment n (repeat until HBLANK is reached)
+                }
+            }else if(scanlineDot >= 257 && scanlineDot <= 320){
+                SpriteFetch();
+            }
+        }
+
 
         if((ppumask & PPU_FLAGS::BACKGROUND_ENABLE_BIT_3) == BACKGROUND_ENABLE_BIT_3
                 || (ppumask & PPU_FLAGS::SPRITE_ENABLE_BIT_4) == SPRITE_ENABLE_BIT_4){
@@ -682,12 +843,121 @@ void PPU::TileFetch(){
     //Second, it reads through OAM, checking which sprites will be on this scanline. It chooses the first eight it finds that do.
     //Third, if eight sprites were found, it checks (in a wrongly-implemented fashion) for further sprites on the scanline to see if the sprite overflow flag should be set.
     //Fourth, using the details for the eight (or fewer) sprites chosen, it determines which pixels each has on the scanline and where to draw the
-
-    // tileValue = FetchPPU(tileValue);
-    // printf("new tileValue: 0x%X\n",tileValue
 }
 
-void PPU::GetPallete() {
+void PPU::SpriteFetch() {
+    if((ppumask & PPU_FLAGS::SPRITE_ENABLE_BIT_4) == SPRITE_ENABLE_BIT_4){
+
+        if(scanlineDot == 257){
+            oamaddr = 0;
+            oam2Address = 0;
+        }
+        
+        // Cycles 1-64: Secondary OAM (32-byte buffer for current sprites on scanline) 
+        // is initialized to $FF attempting to read $2004 will return $FF.
+        // Internally, the clear operation is implemented
+        // by reading from the OAM and writing into the secondary OAM as usual,
+        // only a signal is active that makes the read always return $FF.
+    
+        // https://github.com/emu-russia/breaks/blob/master/BreakingNESWiki_DeepL/PPU/fifo.md
+        // https://www.nesdev.org/2C02%20technical%20reference.TXT
+        // Cycles 257-320: Sprite fetches (8 sprites total, 8 cycles per sprite)
+        // 1-4: Read the Y-coordinate, tile number, attributes, and X-coordinate of the selected sprite from secondary OAM
+        // 5-8: Read the X-coordinate of the selected sprite from secondary OAM 4 times (while the PPU fetches the sprite tile data)
+        // For the first empty sprite slot, this will consist of sprite #63's Y-coordinate followed by 3 $FF bytes; for subsequent empty sprite slots, this will be four $FF bytes
+                
+        unsigned char actualCycle = (unsigned char) ((scanlineDot-1) & 0x7);
+        // printf("tile fetch cycle: %d\n",actualCycle);
+        //Each memory fetch takes 2 dots:
+        // dot 1: the full address is placed onto the PPU's address bus
+        //        and the low 8 bits are stored into an external address latch
+        // dot 2: the read is performed.
+
+        if(actualCycle == 0){
+            spriteY = oam2[oam2Address]; // Save Y
+            oam2Address++;
+        }else if(actualCycle == 1){
+            ppuAddress = oam2[oam2Address]; // Save Tile
+            spriteTile = ppuAddress;
+            oam2Address++;
+        }else if(actualCycle == 2){
+            if(((oam2[oam2Address] >> 7) & 1) == 0){
+                VINV = false;
+            }else{
+                VINV = true;
+            }
+            if(((oam2[oam2Address] >> 6) & 1) == 0){
+                HINV = false;
+            }else{
+                HINV = true;
+            }
+            // Save Attribute pallete (bit 0-1) and priority (bit 5)
+            spriteBuffer[oam2Address/4].latchAttribute = ((oam2[oam2Address] & 0x20)>>3) | (oam2[oam2Address] & 3);
+            oam2Address++;
+        }else if(actualCycle == 3){
+            spriteBuffer[oam2Address/4].posX = oam2[oam2Address]; // Save X
+        }else if(actualCycle == 4){
+            // oam2[oam2Address]; // Read X again
+            GetSpriteAddress(); // update ppuAddress
+        }else if(actualCycle == 5){
+            // oam2[oam2Address]; // Read X again
+            spriteBuffer[oam2Address/4].SRLowByte = FetchPPU(ppuAddress);
+            if(HINV == true){
+                spriteBuffer[oam2Address/4].SRLowByte = FlipSpriteHorizontal(spriteBuffer[oam2Address/4].SRLowByte);
+            }
+
+            // in-range check. (The pre-render line ends up checking scanline 5 due to the `& 0xFF`.
+            if (!((scanlineRow & 0xFF) - spriteY >= 0 && (scanlineRow & 0xFF) - spriteY < ((ppuctrl & PPUCTRL) == PPUCTRL ? 16 : 8)))
+            {
+                spriteBuffer[oam2Address/4].SRLowByte = 0; // clear the value in this shift register if this object isn't in range.
+            }
+        }else if(actualCycle == 6){
+            // oam2[oam2Address]; // Read X again
+            GetSpriteAddress(); // update ppuAddress
+            ppuAddress+=8;
+        }else if(actualCycle == 7){
+            // oam2[oam2Address]; // Read X again
+            spriteBuffer[oam2Address/4].SRHighByte = FetchPPU(ppuAddress);
+
+            if(HINV == true){
+                spriteBuffer[oam2Address/4].SRHighByte = FlipSpriteHorizontal(spriteBuffer[oam2Address/4].SRHighByte);          
+            }
+
+            // in-range check. (The pre-render line ends up checking scanline 5 due to the `& 0xFF`.
+            if (!((scanlineRow & 0xFF) - spriteY >= 0 && (scanlineRow & 0xFF) - spriteY < ((ppuctrl & PPUCTRL) == PPUCTRL ? 16 : 8)))
+            {
+                spriteBuffer[oam2Address/4].SRHighByte = 0; // clear the value in this shift register if this object isn't in range.
+            }
+            oam2Address++;
+        }
+    }
+}
+
+void PPU::GetSpriteAddress(){
+    // More info: Details of object pattern fetch & render
+    // 8x8 sprites
+    if((ppuctrl & PPU_FLAGS::SPRITE_SIZE_FLAG) == 0){
+        // The address is $0000 or $1000 depending on the nametable.
+        // plus the pattern value from OAM * 16
+        // plus the number of scanlines from the top of the object.
+        // if the attributes are set to flip Y, it's 7 - the number of scanlines from the top of the object.
+        if(VINV == false){
+            ppuAddress = (unsigned short)(ppuctrl & PPU_FLAGS::SPRITE_PATTERN_FLAG ? 0x1000 : 0);
+            ppuAddress += (spriteTile << 4) + ((scanlineRow & 0xFF) - spriteY);
+        }else{
+            ppuAddress = (unsigned short)(ppuctrl & PPU_FLAGS::SPRITE_PATTERN_FLAG ? 0x1000 : 0);
+            ppuAddress += (spriteTile << 4) + ((7 - ((scanlineRow & 0xFF) - spriteY)) & 7);
+        }
+    }else{
+        // 8x16 sprites
+    }
+}
+
+unsigned char PPU::FlipSpriteHorizontal(unsigned char b){
+    b = (b & 0xF0) >> 4 | (b & 0x0F) << 4; // Swap nibbles
+    b = (b & 0xCC) >> 2 | (b & 0x33) << 2; // Swap pairs of bits
+    b = (b & 0xAA) >> 1 | (b & 0x55) << 1; // Swap adjacent bits
+    return b;
 }
 
 void PPU::StorePPUData(unsigned char value, unsigned short Address){
@@ -701,7 +971,8 @@ void PPU::StorePPUData(unsigned char value, unsigned short Address){
     }
     else if (Address >= 0x3F00)
     {
-        printf("set pallete 0x%x: 0x%x\n",Address&0x1f,value);
+        // printf("set pallete 0x%x: 0x%x\n",Address&0x1f,value);
+        // printf("pc: 0x%x\n",emulator.cpu.pc);
         debugPalattechange++;
         paletteRAM[Address & 0x1F] = value;
     }
@@ -713,7 +984,6 @@ void PPU::StorePPUData(unsigned char value, unsigned short Address){
 }
 
 void PPU::StoreInPPU(unsigned char value, unsigned short address) {
-    unsigned char data = 0;
     // printf("store ppu pc: 0x%X\n",emulator.cpu.pc);
 
     // printf("ppu write register: 0x%X\n",address);
@@ -829,16 +1099,15 @@ void PPU::StoreInPPU(unsigned char value, unsigned short address) {
         ppuBus = value;
         // data = ppu.ppustatus; //+ (PPUBus & 0x1F);
         // ppu.ClearFlag(SECTIONS6502::PPUSTATUS, PPU_FLAGS::PPU_VBLANK);
-        printf("ppu data write: 0x%X\n",data);
+        // printf("ppu data write: 0x%X\n",data);
     }else if(address == SECTIONS6502::OAMADDR){ // 0x2003
         ppuBus = value;
-        printf("OAMADDR\n");
-        // while (true){}
+        oamaddr = value;
     }else if(address == SECTIONS6502::OAMDATA){ // 0x2004
         ppuBus = value;
-        // data = ReadOAM();
-        printf("readOAMDATA\n");
-        // while (true){}
+        oamdata = value;
+        oam1[oamaddr] = value;
+        oamaddr++;
 
     }else if(address == SECTIONS6502::PPUSCROLL){ // 0x2005
         ppuBus = value;
@@ -875,6 +1144,7 @@ void PPU::StoreInPPU(unsigned char value, unsigned short address) {
         ppuBus = value;
         ppudata = value;
         StorePPUData(ppudata, registerV);
+        // printf("2007 pc: 0x%X, V: 0x%X, Value: 0x%X\n",emulator.cpu.pc,registerV,value);
         // printf("2007 pc: 0x%X\n",emulator.cpu.pc);
         // printf("2007 registerV: 0x%X\n",registerV);
         // printf("ppudata: 0x%X\n",ppudata);
@@ -886,7 +1156,8 @@ void PPU::StoreInPPU(unsigned char value, unsigned short address) {
             registerV++;
             // if bit is zero (0)
         }
-        // ppuctrl
-        // while (true){}
+    }else if(address == SECTIONS6502::OAMDMA){ // 0x4014
+        emulator.cpu.DMAPage = value;
+        emulator.cpu.DMAAddress = 0; // always start with zero
     }
 }

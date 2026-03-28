@@ -7,6 +7,7 @@ struct DebuggerData
    unsigned char x;
    unsigned char y;
    unsigned char a;
+   unsigned char status;
    unsigned short ppuDot;
    unsigned short ppuScanline;
 };
