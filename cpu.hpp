@@ -326,6 +326,16 @@ struct RGBstruct
     unsigned char B;
 };
 
+class Controller{
+public:
+    bool controllerStrobe = false;
+    unsigned char controllerData1 = 0;
+    unsigned char controllerData2 = 0;
+    unsigned char controllerShiftRegister1 = 0;
+    unsigned char controllerShiftRegister2 = 0;
+    unsigned char shiftCounter1 = 0;
+};
+
 class Emulator{
     public:
     CPU6502 cpu;
@@ -338,6 +348,7 @@ class Emulator{
 };
 
 extern Emulator emulator;
+extern Controller controller;
 extern RenderTexture2D target;
 extern int gameScreenWidth;
 extern int gameScreenHeight;

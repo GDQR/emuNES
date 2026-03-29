@@ -391,8 +391,14 @@ unsigned char Emulator::Fetch(unsigned short address){
         }
         cpu.cycleCounter++;
     }else if(address >= 0x4000 && address <= 0x401F){
-        if (address == 0x4016 || address == 0x4017){
-            //TODO
+        if (address == 0x4016){
+            unsigned char inputData = ((controller.controllerShiftRegister1 & 0x80)>>7) | (cpu.dataBus & 0xE0);
+            printf("4016: 0x%X\n",inputData);
+            controller.shiftCounter1 = 2;
+            emulator.cpu.dataBus = inputData;
+            cpu.cycleCounter++;
+            return inputData;
+        }else if(address == 0x4017){
         }else if(address == 0x4014){
             
             printf("4014\n");
@@ -420,9 +426,13 @@ void CPU6502::StoreInCPUMemory(unsigned char value, unsigned short address)
     }else if (address < 0x4000){
         // $2000 through $3FFF writes to the PPU registers
         emulator.ppu.StoreInPPU(value, address);
+    }else if(address == 0x4000){
+        
     }else if(address == 0x4014){ // OAMDMA WRITE
         emulator.ppu.StoreInPPU(value, address);
         DMAactive = true;
+    }else if(address == 0x4016){
+        controller.controllerStrobe = value; // Activate/Desactivate read of controller
     }
 }
 
@@ -3580,13 +3590,59 @@ void Emulator::Initialize(const char* file){
 
 shared_memory_buffer * data;
 
+int nes_Button_A = KEY_L;
+int nes_Button_B = KEY_B;
+int nes_Button_Select = KEY_Q;
+int nes_Button_Start = KEY_E;
+int nes_Button_Up = KEY_W;
+int nes_Button_Down = KEY_S;
+int nes_Button_Left = KEY_A;
+int nes_Button_Right = KEY_D;
+
 void Emulator::Cycle(){
     cpu.EmulateCycle();
     ppu.EmulateCycle();
     ppu.EmulateCycle();
     ppu.EmulateCycle();
+    if (controller.shiftCounter1 > 0){
+        controller.shiftCounter1--;
+        if (controller.shiftCounter1 == 0)
+        {
+            controller.controllerShiftRegister1 <<= 1;
+            controller.controllerShiftRegister1 |= 1;
+        }
+    }
+    if(controller.controllerStrobe == true){
+        controller.controllerData1 = 0;
+        if(IsKeyDown(nes_Button_Right) == true){
+            controller.controllerData1 = 1;
+        }
+        if(IsKeyDown(nes_Button_Left) == true){
+            controller.controllerData1 |= 2;
+        }
+        if(IsKeyDown(nes_Button_Down) == true){
+            controller.controllerData1 |= 4;
+        }
+        if(IsKeyDown(nes_Button_Up) == true){
+            controller.controllerData1 |= 8;
+        }
+        if(IsKeyDown(nes_Button_Start) == true){
+            controller.controllerData1 |= 16;
+        }
+        if(IsKeyDown(nes_Button_Select) == true){
+            controller.controllerData1 |= 32;
+        }
+        if(IsKeyDown(nes_Button_B) == true){
+            controller.controllerData1 |= 64;
+        }
+        if(IsKeyDown(nes_Button_A) == true){
+            controller.controllerData1 |= 128;
+        }
+        controller.controllerShiftRegister1 = controller.controllerData1;
+    }
 }
 
+Controller controller;
 RenderTexture2D target;
 int gameScreenWidth;
 int gameScreenHeight;

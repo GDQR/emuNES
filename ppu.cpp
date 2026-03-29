@@ -515,20 +515,20 @@ void PPU::EmulateCycle(){
             int x = 0;
             int y = 0;
             int cont=0;
-            int scrX =0;
-            int scrY =0;
-            for(int i=0; i< 61440;i++){
-                if(scrX % 8 == 0 || scrY %8 == 8){
-                    pantalla[i].R = 255;
-                    pantalla[i].G = 255;
-                    pantalla[i].B = 255;
-                }
-                scrX++;
-                if(scrX>=256){
-                    scrX = 0;
-                    scrY++;
-                }
-            }
+            // int scrX =0;
+            // int scrY =0;
+            // for(int i=0; i< 61440;i++){
+            //     if(scrX % 8 == 0 || scrY %8 == 8){
+            //         pantalla[i].R = 255;
+            //         pantalla[i].G = 255;
+            //         pantalla[i].B = 255;
+            //     }
+            //     scrX++;
+            //     if(scrX>=256){
+            //         scrX = 0;
+            //         scrY++;
+            //     }
+            // }
             for(int i=0; i< 61440;i++){
                 DrawPixel(x,y,Color{pantalla[i].R,pantalla[i].G,pantalla[i].B,255});
                 x++;
