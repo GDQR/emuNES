@@ -106,8 +106,12 @@ struct CPU6502
     void ZeroPageReadIns();
     void ZeroPageReadModWriteIns();
     void ZeroPageWriteIns();
-    unsigned short FetchAccumulator(unsigned short address); 
-    unsigned char FetchImmediate(unsigned short address);
+    void AbsoluteXReadIns();
+    void AbsoluteXReadModWriteIns();
+    void AbsoluteXWriteIns();
+    void AbsoluteYReadIns();
+    void AbsoluteYReadModWriteIns();
+    void AbsoluteYWriteIns();
     // 1 Cycles
     unsigned short FetchZeroPageX(unsigned short address);
     unsigned short FetchZeroPageY(unsigned short address);
