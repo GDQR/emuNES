@@ -100,6 +100,9 @@ struct CPU6502
     void CheckPageCrossing(unsigned short pc);
     void isNegative(unsigned char value);
     void isZero(unsigned char value);
+    void AbsoluteReadIns();
+    void AbsoluteReadModWriteIns();
+    void AbsoluteWriteIns();
     unsigned short FetchAccumulator(unsigned short address); 
     unsigned char FetchImmediate(unsigned short address);
     // 1 Cycles
