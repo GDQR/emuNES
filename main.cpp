@@ -350,7 +350,7 @@ unsigned char Emulator::Fetch(unsigned short address){
     }else if(address < SECTIONS6502::PPU_SECTION){
         cpu.cycleCounter++;
         return cpu.RAM[address & 0x7ff];
-    }else if (address >= SECTIONS6502::PPU_SECTION && address < SECTIONS6502::APU){
+    }else if (address >= SECTIONS6502::PPU_SECTION && address < SECTIONS6502::APUREGISTERS){
         cpu.cycleCounter++;
         if(address == SECTIONS6502::PPUCTRL){ // 0x2000 Write only
             return ppu.ppuBus;
@@ -393,7 +393,7 @@ unsigned char Emulator::Fetch(unsigned short address){
     }else if(address >= 0x4000 && address <= 0x401F){
         if (address == 0x4016){
             unsigned char inputData = ((controller.controllerShiftRegister1 & 0x80)>>7) | (cpu.dataBus & 0xE0);
-            printf("4016: 0x%X\n",inputData);
+            // printf("4016: 0x%X\n",inputData);
             controller.shiftCounter1 = 2;
             emulator.cpu.dataBus = inputData;
             cpu.cycleCounter++;
@@ -426,8 +426,8 @@ void CPU6502::StoreInCPUMemory(unsigned char value, unsigned short address)
     }else if (address < 0x4000){
         // $2000 through $3FFF writes to the PPU registers
         emulator.ppu.StoreInPPU(value, address);
-    }else if(address == 0x4000){
-        
+    }else if((address >= 0x4000 && address <= 0x4013) || address == 0x4015 || address == 0x4017){
+        emulator.apu.Store(value, address); // APU registers
     }else if(address == 0x4014){ // OAMDMA WRITE
         emulator.ppu.StoreInPPU(value, address);
         DMAactive = true;
@@ -637,7 +637,7 @@ void CPU6502::Ins_ADC(){
 }
 
 //CYCLE ACCURACY
-// 29, 25, 35
+// 29, 25, 35, 3D
 void CPU6502::Ins_AND()
 {
     if(opcode == AND_IMMEDIATE_29){
@@ -682,10 +682,28 @@ void CPU6502::Ins_AND()
         dataBus = emulator.Fetch(dataAddress);
     }else if(opcode == AND_ABSOLUTEX_3D){
         // max 4 or 5 cycles
-        dataAddress = FetchAbsoluteX(pc);
-        pc++;
-        pc++;
-        dataBus = emulator.Fetch(dataAddress);
+        if(cycleCounter == 1){
+            dataAddress = emulator.Fetch(pc);
+            pc++;
+        }else if(cycleCounter == 2){
+            dataAddress = (emulator.Fetch(pc)<<8) | dataAddress;
+            dataAddress += registerX;
+            pc++;
+        }else if(cycleCounter == 3){
+            dataBus = emulator.Fetch(dataAddress);
+
+            accumulator = accumulator & dataBus;
+            isZero(accumulator);
+            isNegative(accumulator);
+
+            
+            if(((dataAddress - registerX) & 0xFF00) != (dataAddress & 0xFF00)){
+                cycleCounterMax++; // page crossing add 1 cycle
+            }
+
+        }else if(cycleCounter == 4){
+            cycleCounter++;
+        }
     }else if(opcode == AND_ABSOLUTEY_39){
         // max 4 or 5 cycles
         dataAddress = FetchAbsoluteY(pc);
@@ -704,7 +722,7 @@ void CPU6502::Ins_AND()
         dataBus = emulator.Fetch(dataAddress);
     }
 
-    if(opcode != AND_ZEROPAGEX_35 && opcode != AND_IMMEDIATE_29 && opcode != AND_ZEROPAGE_25){       
+    if(opcode != AND_ZEROPAGEX_35 && opcode != AND_IMMEDIATE_29 && opcode != AND_ZEROPAGE_25 && opcode != AND_ABSOLUTEX_3D){       
         printf("AND not work: 0x%X\n",opcode);
         while (true){}
         
@@ -923,8 +941,7 @@ void CPU6502::Ins_BEQ() {
     }
 }
 
-//CYCLE ACCURACY:
-//24
+//CYCLE ACCURACY: ALL
 void CPU6502::Ins_BIT() {
   if(opcode == BIT_ZEROPAGE_24){
     if(cycleCounter == 1){
@@ -943,32 +960,25 @@ void CPU6502::Ins_BIT() {
         isNegative(dataBus);
     }
   }else if(opcode == BIT_ABSOLUTE_2C){
-    dataAddress = FetchAbsolute(pc);
-    pc++;
-    pc++;
-  }
+    if(cycleCounter == 1){        
+        dataAddress = emulator.Fetch(pc);
+        pc++;
+    }else if(cycleCounter == 2){
+        dataAddress = (emulator.Fetch(pc) << 8) | dataAddress;
+        pc++;
+    }else if(cycleCounter == 3){
+        dataBus = emulator.Fetch(dataAddress);
 
-  if(opcode != BIT_ZEROPAGE_24){
-    printf("BIT NOT WORK: 0x%X\n",opcode);
-    while (true)
-    {
-        /* code */
+        isZero(dataBus);
+
+        if ((dataBus & 0x40) != 0) {
+            SetFlag(CPUFLAGS::OVERFLOW);
+        } else {
+            ClearFlag(CPUFLAGS::OVERFLOW);
+        }
+        isNegative(dataBus);
     }
-    
   }
-
-//   if(cycleCounter == cycleCounterMax){
-//     dataBus = accumulator & emulator.Fetch(dataAddress);
-
-//     isZero(dataBus);
-
-//     if ((dataBus & 0x40) != 0) {
-//         SetFlag(CPUFLAGS::OVERFLOW);
-//     } else {
-//         ClearFlag(CPUFLAGS::OVERFLOW);
-//     }
-//     isNegative(dataBus);
-//   }
 }
 
 void CPU6502::Ins_BMI(){
@@ -1986,16 +1996,28 @@ void CPU6502::Ins_LDX(){
             isNegative(registerX);
         }
     }else if(opcode == LDX_ABSOLUTEY_BE){
-        dataAddress = FetchAbsolute(pc);
-        CheckPageCrossing(pc);
-        pc++;
-        CheckPageCrossing(pc);
-        pc++;
-        registerX = emulator.Fetch(dataAddress);
+        if(cycleCounter == 1){
+            dataAddress = emulator.Fetch(pc);
+            pc++;
+        }else if(cycleCounter == 2){
+            dataAddress = (emulator.Fetch(pc)<<8) | dataAddress;
+            dataAddress += registerY;
+            pc++;
+        }else if(cycleCounter == 3){
+            registerX = emulator.Fetch(dataAddress);
+            
+            isZero(registerX);
+            isNegative(registerX);
+
+            if(((dataAddress - registerY) & 0xFF00) !=(dataAddress & 0xFF00)){
+                cycleCounterMax++; // page crossing add 1 cycle
+            }
+        }else if(cycleCounter == 4){
+            cycleCounter++;
+        }
     }
 
-
-    if(opcode != LDX_IMMEDIATE_A2 && opcode != LDX_ZEROPAGE_A6 && opcode != LDX_ABSOLUTE_AE){
+    if(opcode != LDX_IMMEDIATE_A2 && opcode != LDX_ZEROPAGE_A6 && opcode != LDX_ABSOLUTE_AE && opcode != LDX_ABSOLUTEY_BE){
         printf("LDX not work: 0x%x\n",opcode);
         while (true)
         {
@@ -3640,6 +3662,8 @@ void Emulator::Cycle(){
         }
         controller.controllerShiftRegister1 = controller.controllerData1;
     }
+    // 60hz or 48hz
+    emulator.apu.EmulateCycle();
 }
 
 Controller controller;
@@ -3647,6 +3671,8 @@ RenderTexture2D target;
 int gameScreenWidth;
 int gameScreenHeight;
 float scale;
+
+
 int main(int argc, char const *argv[])
 {
     // Initialization
@@ -3667,7 +3693,6 @@ int main(int argc, char const *argv[])
     gameScreenWidth = 256;
     gameScreenHeight = 240;
 
-    
     // Render texture initialization, used to hold the rendering result so we can easily resize it
     target = LoadRenderTexture(gameScreenWidth, gameScreenHeight);
     SetTextureFilter(target.texture, TEXTURE_FILTER_POINT);  // Texture scale filter to use
@@ -3675,7 +3700,9 @@ int main(int argc, char const *argv[])
     SetTargetFPS(60);               // Set our game to run at 60 frames-per-second
     //--------------------------------------------------------------------------------------
 
-    emulator.Initialize("DonkeyK.nes");
+    // emulator.Initialize("DonkeyK.nes");
+    emulator.Initialize("Super_mario_brothers.nes");
+    emulator.apu.Initialize();
     
     RenderTexture2D target = LoadRenderTexture(256, 240);
     SetTextureFilter(target.texture, TEXTURE_FILTER_POINT);
@@ -3717,124 +3744,74 @@ int main(int argc, char const *argv[])
     {
         // data->items[0]
         
-        if(rayWindow_Debugger == false){
-            rayWindow_Debugger = true;
-           
-            data->nempty.wait();
-            data->mutex.wait();
-            
-            printf("main\n");
-            OpenWindow();
-            data->mutex.post();
-            data->nstored.post();
-        }
-
-        if(data->commandMain == 1){
-            
-            data->nempty.wait();
-            data->mutex.wait();
-            data->debugger.pc = emulator.cpu.pc;
-            data->debugger.x = emulator.cpu.registerX;
-            data->debugger.y = emulator.cpu.registerY;
-            data->debugger.a = emulator.cpu.accumulator;
-            data->debugger.status = emulator.cpu.statusFlag;
-            data->debugger.ppuDot = emulator.ppu.scanlineDot;
-            data->debugger.ppuScanline = emulator.ppu.scanlineRow;
-            
-            data->commandMain = 0;
-            data->mutex.post();
-            data->nstored.post();
-        }else if(data->commandMain == 2){
-            
-            data->nempty.wait();
-            data->mutex.wait();
-            
-            data->debugger.pc = emulator.cpu.pc;
-            data->debugger.x = emulator.cpu.registerX;
-            data->debugger.y = emulator.cpu.registerY;
-            data->debugger.a = emulator.cpu.accumulator;
-            data->debugger.status = emulator.cpu.statusFlag;
-            data->debugger.ppuDot = emulator.ppu.scanlineDot;
-            data->debugger.ppuScanline = emulator.ppu.scanlineRow;
-            data->mutex.post();
-            data->nstored.post();
-            
-            printf("termine\n");
-            while (data->commandMain == 2){}
-            printf("sali\n");
-        } else if(data->commandMain == 3 || data->commandMain == 4){
-            
-            if (data->debugger.pc != emulator.cpu.pc){
-                data->nempty.wait();
-                data->mutex.wait();
-                
-                data->debugger.pc = emulator.cpu.pc;
-                data->debugger.x = emulator.cpu.registerX;
-                data->debugger.y = emulator.cpu.registerY;
-                data->debugger.a = emulator.cpu.accumulator;
-                data->debugger.status = emulator.cpu.statusFlag;
-                data->debugger.ppuDot = emulator.ppu.scanlineDot;
-                data->debugger.ppuScanline = emulator.ppu.scanlineRow;
-                data->mutex.post();
-                data->nstored.post();
-                
-                printf("termine\n");
-                int stopValue = data->commandMain;
-                while (data->commandMain == stopValue){}
-                printf("sali\n");
-            }
-        }
-        // printf("post\n");
-        // printf("pc: 0x%x\n",emulator.cpu.pc);
         // if(rayWindow_Debugger == false){
         //     rayWindow_Debugger = true;
+           
+        //     data->nempty.wait();
+        //     data->mutex.wait();
+            
+        //     printf("main\n");
         //     OpenWindow();
-        //     int contdeb=0;
-        //     while (ReceiveFromOthers(command) == 1)
-        //     {
-        //         if(contdeb < 10){
-        //         printf("no abrio\n");
-        //         contdeb++;                    
-        //         }
-        //     }
-        //     command = 1;
-        //     printf("sali de openwindo\n");
+        //     data->mutex.post();
+        //     data->nstored.post();
         // }
-        // if(command == 0){
-        //     // printf("recibiendo, pc: 0x%x\n",emulator.cpu.pc);
-        //     ReceiveFromOthers(command);
-        // }else if(command == 1){
-        //     printf("pc: 0x%x\n",emulator.cpu.pc);
-        //     size_t size = 24;
-        //     std::string data(size,'\0');
-        //     // data.resize(24);
+
+        // if(data->commandMain == 1){
             
-        //     memcpy(&data[0], &emulator.cpu.pc, sizeof(emulator.cpu.pc));
-        //     memcpy(&data[2], &emulator.cpu.registerX, sizeof(emulator.cpu.registerX));
-        //     memcpy(&data[3], &emulator.cpu.registerY, sizeof(emulator.cpu.registerY));
-        //     // printf("data size: %d\n",data.size());
-        //     for(int i=0; i<data.size();i++){
-        //         printf("[%d]: 0x%x\n",i,data[i]);
+        //     data->nempty.wait();
+        //     data->mutex.wait();
+        //     data->debugger.pc = emulator.cpu.pc;
+        //     data->debugger.x = emulator.cpu.registerX;
+        //     data->debugger.y = emulator.cpu.registerY;
+        //     data->debugger.a = emulator.cpu.accumulator;
+        //     data->debugger.status = emulator.cpu.statusFlag;
+        //     data->debugger.ppuDot = emulator.ppu.scanlineDot;
+        //     data->debugger.ppuScanline = emulator.ppu.scanlineRow;
+            
+        //     data->commandMain = 0;
+        //     data->mutex.post();
+        //     data->nstored.post();
+        // }else if(data->commandMain == 2){
+            
+        //     data->nempty.wait();
+        //     data->mutex.wait();
+            
+        //     data->debugger.pc = emulator.cpu.pc;
+        //     data->debugger.x = emulator.cpu.registerX;
+        //     data->debugger.y = emulator.cpu.registerY;
+        //     data->debugger.a = emulator.cpu.accumulator;
+        //     data->debugger.status = emulator.cpu.statusFlag;
+        //     data->debugger.ppuDot = emulator.ppu.scanlineDot;
+        //     data->debugger.ppuScanline = emulator.ppu.scanlineRow;
+        //     data->mutex.post();
+        //     data->nstored.post();
+            
+        //     printf("termine\n");
+        //     while (data->commandMain == 2){}
+        //     printf("sali\n");
+        // } else if(data->commandMain == 3 || data->commandMain == 4){
+            
+        //     if (data->debugger.pc != emulator.cpu.pc){
+        //         data->nempty.wait();
+        //         data->mutex.wait();
+                
+        //         data->debugger.pc = emulator.cpu.pc;
+        //         data->debugger.x = emulator.cpu.registerX;
+        //         data->debugger.y = emulator.cpu.registerY;
+        //         data->debugger.a = emulator.cpu.accumulator;
+        //         data->debugger.status = emulator.cpu.statusFlag;
+        //         data->debugger.ppuDot = emulator.ppu.scanlineDot;
+        //         data->debugger.ppuScanline = emulator.ppu.scanlineRow;
+        //         data->mutex.post();
+        //         data->nstored.post();
+                
+        //         printf("termine\n");
+        //         int stopValue = data->commandMain;
+        //         while (data->commandMain == stopValue){}
+        //         printf("sali\n");
         //     }
-        //     // printf("string : 0x%x\n",data);
-        //     printf("string 0: 0x%x\n",data[0]);
-        //     printf("string 1: 0x%x\n",data[1]);
-        //     printf("string 2: 0x%x\n",data[2]);
-        //     SendDebugger(data);
-        //     while (ReceiveFromOthers(command) == 1)
-        //     {
-        //     }
-            
-        //     command = 0;
-        // }else if(command == 2){
-        //     size_t size = 24;
-        //     std::string data(size,'\0');
-        //     // data.resize(24);
-            
-        //     memcpy(&data[0], &emulator.cpu.pc, sizeof(emulator.cpu.pc));
-        //     SendDebugger(data);
-        //     command = 0;
         // }
+        
         scale = MIN((float)GetScreenWidth()/gameScreenWidth, (float)GetScreenHeight()/gameScreenHeight);
         // Update
         //----------------------------------------------------------------------------------
@@ -3848,6 +3825,7 @@ int main(int argc, char const *argv[])
 
     // De-Initialization
     //--------------------------------------------------------------------------------------
+    emulator.apu.Destroy();
     CloseMainWindow();
     CloseWindow();          // Close window and OpenGL context
     if(rayWindow_Debugger == true){

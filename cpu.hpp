@@ -18,7 +18,7 @@ enum SECTIONS6502{
     PPUSCROLL = 0x2005, // 0x2005
     PPUADDR = 0x2006, // 0x2006
     PPUDATA = 0x2007, // 0x2007
-    APU = 0x4000, // 0x4000
+    APUREGISTERS = 0x4000, // 0x4000
     OAMDMA = 0x4014, // 0x4014
     WRAM = 0x6000,
     ROM = 0x8000, // 0x8000
@@ -336,10 +336,40 @@ public:
     unsigned char shiftCounter1 = 0;
 };
 
+class APU{
+public:
+    unsigned char pulse1[4];
+    unsigned char pulse2[4];
+    unsigned char triangle[4];
+    unsigned char noise[4];
+    unsigned char DMC[4];
+    unsigned char status;
+    unsigned char frameCounter;
+    unsigned char sequencePulse1;
+    unsigned short timerPulse1;
+    float frequencyPulse1;
+
+    double amplitud = 1;
+    double frequency = 0;
+    float harmonics = 20;
+    unsigned char clock = 0;
+    unsigned char CPUclock = 0;
+
+    float fDutyCycle;
+    float fHarmonics;
+    float fFrequency;
+    float t;
+    void EmulateCycle();
+    void Initialize();
+    void Store(unsigned char value, unsigned short address);
+    void Destroy();
+};
+
 class Emulator{
     public:
     CPU6502 cpu;
     PPU ppu;
+    APU apu;
     Cartridge* game;
     void Initialize(const char* file);
     void Cycle();
