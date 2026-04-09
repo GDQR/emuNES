@@ -1780,8 +1780,7 @@ void CPU6502::Ins_INY() {
     cycleCounter++;
 }
 
-//CYCLE ACCURATE:
-// 4C
+//CYCLE ACCURATE: ALL
 void CPU6502::Ins_JMP() {
     if(opcode == JMP_ABSOLUTE_4C){
         // max 3 cycles
@@ -1795,18 +1794,18 @@ void CPU6502::Ins_JMP() {
         }
     }else if(opcode == JMP_INDIRECT_6C){
         // max 5 cycles
-        dataAddress = FetchIndirect(pc);
-        pc++;
-        pc++;
-    }
-
-    if(opcode != JMP_ABSOLUTE_4C){
-        printf("JMP NOT WORK: 0x%X\n",opcode);
-        while (true)
-        {
-            /* code */
+        if(cycleCounter == 1){
+            dataBus = emulator.Fetch(pc);
+            pc++;
+        }else if(cycleCounter == 2){
+            dataAddress = (emulator.Fetch(pc) << 8) | dataBus;
+            pc++;
+        }else if(cycleCounter == 3){
+            dataBus = emulator.Fetch(dataAddress); // Get the PCL
+        }else if(cycleCounter == 4){
+            pc = (emulator.Fetch(dataAddress+1)<<8) | dataBus; // Get the PCH;
+            dataAddress = pc;
         }
-        
     }
 }
 
