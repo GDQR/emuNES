@@ -97,7 +97,6 @@ struct CPU6502
     void SetFlag(CPUFLAGS flag);
     void ClearFlag(CPUFLAGS flag);
     void Reset();
-    void CheckPageCrossing(unsigned short pc);
     void isNegative(unsigned char value);
     void isZero(unsigned char value);
     void AbsoluteReadIns();
@@ -109,6 +108,9 @@ struct CPU6502
     void ZeroPageXReadIns();
     void ZeroPageXReadModWriteIns();
     void ZeroPageXWriteIns();
+    void ZeroPageYReadIns();
+    void ZeroPageYReadModWriteIns();
+    void ZeroPageYWriteIns();
     void AbsoluteXReadIns();
     void AbsoluteXReadModWriteIns();
     void AbsoluteXWriteIns();
@@ -121,9 +123,6 @@ struct CPU6502
     void IndirectYReadIns();
     void IndirectYReadModWriteIns();
     void IndirectYWriteIns();
-    // 1 Cycles
-    unsigned short FetchZeroPageX(unsigned short address);
-    unsigned short FetchZeroPageY(unsigned short address);
     void StoreInCPUMemory(unsigned char value, unsigned short address);
     void Ins_ADC();
     void Ins_AND();

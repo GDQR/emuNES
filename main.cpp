@@ -436,15 +436,6 @@ void CPU6502::StoreInCPUMemory(unsigned char value, unsigned short address)
     }
 }
 
-unsigned short CPU6502::FetchZeroPageX(unsigned short address){
-    unsigned short newAddress = (unsigned short) (0x0000 | emulator.Fetch(address)) + registerX;
-    return newAddress;
-}
-unsigned short CPU6502::FetchZeroPageY(unsigned short address){
-    unsigned short newAddress = (unsigned short) (0x0000 | emulator.Fetch(address)) + registerY;
-    return newAddress;
-}
-
 // (LDA, LDX, LDY, EOR, AND, ORA, ADC, SBC, CMP, BIT, LAX, NOP)
 void CPU6502::AbsoluteReadIns(){
     if(cycleCounter == 1){
@@ -782,6 +773,35 @@ void CPU6502::ZeroPageXWriteIns() {
     }
 }
 
+void CPU6502::ZeroPageYReadIns() {
+    if(cycleCounter == 1){
+        dataAddress = emulator.Fetch(pc);
+        pc++;
+    }else if(cycleCounter == 2){
+        dataBus = emulator.Fetch(dataAddress); // Dummy read
+        dataAddress += registerY;
+    }else if(cycleCounter == 3){
+        dataBus = emulator.Fetch(dataAddress);
+    }
+}
+
+void CPU6502::ZeroPageYReadModWriteIns() {}
+
+void CPU6502::ZeroPageYWriteIns() {
+    if(cycleCounter == 1){
+        dataAddress = emulator.Fetch(pc);
+        pc++;
+    }else if(cycleCounter == 2){
+        dataBus = emulator.Fetch(dataAddress); // Dummy read
+        dataAddress += registerY;
+    }else if(cycleCounter == 3){
+        if(opcode == STX_ZEROPAGEY_96){
+            StoreInCPUMemory(registerX,dataAddress);
+        }
+        cycleCounter++;
+    }
+}
+
 // (LDA, LDX, LDY, EOR, AND, ORA, ADC, SBC, CMP, BIT, LAX, LAE, SHS, NOP)
 // 4 or 5 Max cycles
 void CPU6502::AbsoluteXReadIns() {
@@ -1087,12 +1107,6 @@ void CPU6502::SetFlag(CPUFLAGS insertFlag)
 void CPU6502::ClearFlag(CPUFLAGS insertFlag)
 {
     statusFlag &= ~((unsigned char)insertFlag);
-}
-
-void CPU6502::CheckPageCrossing(unsigned short pc){
-    if(((pc+1)>>8) != (pc>>8)){
-        cycleCounterMax++;
-    }
 }
 
 // if value have the 7 bit set is negative
@@ -1843,15 +1857,12 @@ void CPU6502::Ins_LDX(){
         // max cycle 3
         ZeroPageReadIns();
     }else if (opcode == LDX_ZEROPAGEY_B6){
-        dataAddress = FetchZeroPageY(pc);
-        pc++;
-        registerX = emulator.Fetch(dataAddress);
+        ZeroPageYReadIns();
     }else if(opcode == LDX_ABSOLUTE_AE){
         AbsoluteReadIns();
     }else if(opcode == LDX_ABSOLUTEY_BE){
         AbsoluteYReadIns();
     }
-
     
     if(cycleCounter == cycleCounterMax){
         if(opcode != LDX_IMMEDIATE_A2){
@@ -2321,15 +2332,6 @@ void CPU6502::Ins_SBC() {
             accumulator = result;
         }
     }
-
-    if(opcode != SBC_ZEROPAGE_E5 && opcode != SBC_IMMEDIATE_E9 && opcode != SBC_ABSOLUTEY_F9 &&  opcode != SBC_ABSOLUTEX_FD && opcode != SBC_ABSOLUTE_ED && opcode != SBC_ZEROPAGEX_F5){
-        printf("SBC NOT WORK, OPCODE: 0x%X\n",opcode);
-        while (true)
-        {
-            /* code */
-        }
-        
-    }
 }
 
 void CPU6502::Ins_SEC() {
@@ -2375,8 +2377,6 @@ void CPU6502::Ins_STA(){
     }
 }
 
-//CYCLE ACCURACY:
-// 86, 8E
 void CPU6502::Ins_STX()
 {
     if(opcode == STX_ZEROPAGE_86){
@@ -2384,23 +2384,12 @@ void CPU6502::Ins_STX()
         ZeroPageWriteIns();
     }else if(opcode == STX_ZEROPAGEY_96){
         // max 4 cycles
-        dataAddress = FetchZeroPageX(pc);
-        pc++;
+        ZeroPageYWriteIns();
     }else if(opcode == STX_ABSOLUTE_8E){
         AbsoluteWriteIns();
     }
-
-    if(opcode != STX_ZEROPAGE_86 && opcode != STX_ABSOLUTE_8E){
-        printf("STX NOT WORK, OPCODE: 0x%X\n",opcode);
-        while (true)
-        {
-            /* code */
-        }
-        
-    }
 }
 
-//CYCLE ACCURACY: ALL
 void CPU6502::Ins_STY(){
     if(opcode == STY_ZEROPAGE_84){
         //max 3 cycles
