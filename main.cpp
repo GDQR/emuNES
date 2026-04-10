@@ -710,6 +710,115 @@ void CPU6502::ZeroPageWriteIns(){
     }
 }
 
+void CPU6502::ZeroPageXReadIns() {
+    if(cycleCounter == 1){
+        dataAddress = emulator.Fetch(pc);
+        pc++;
+    }else if(cycleCounter == 2){
+        dataBus = emulator.Fetch(dataAddress); // Dummy read
+        dataAddress += registerX;
+    }else if(cycleCounter == 3){
+        dataBus = emulator.Fetch(dataAddress);
+    }
+}
+
+void CPU6502::ZeroPageXReadModWriteIns() {
+    if(cycleCounter == 1){
+        dataAddress = emulator.Fetch(pc);
+        pc++;
+    }else if(cycleCounter == 2){
+        dataBus = emulator.Fetch(dataAddress); // Dummy read
+        dataAddress += registerX;
+    }else if(cycleCounter == 3){
+        dataBus = emulator.Fetch(dataAddress);
+    }else if(cycleCounter == 4){
+        StoreInCPUMemory(dataBus, dataAddress); // Dummy Write
+        if(opcode == ASL_ZEROPAGEX_16){
+            if (dataBus >= 0x80){
+                SetFlag(CPUFLAGS::CARRY);
+            }else{
+                ClearFlag(CPUFLAGS::CARRY);
+            }
+
+            dataBus = dataBus << 1;
+            
+            isZero(dataBus);
+            isNegative(dataBus);
+        }else if(opcode == DEC_ZEROPAGEX_D6){            
+            dataBus--;
+            isZero(dataBus);
+            isNegative(dataBus);
+        }else if(opcode == INC_ZEROPAGEX_F6){
+            dataBus++;
+            isZero(dataBus);
+            isNegative(dataBus);
+        }else if(opcode == LSR_ZEROPAGEX_56){
+            if((dataBus & CPUFLAGS::CARRY) == 0x1){
+                SetFlag(CPUFLAGS::CARRY);
+            }else{
+                ClearFlag(CPUFLAGS::CARRY);
+            }
+            dataBus = dataBus >> 1;
+            isZero(dataBus);
+            isNegative(dataBus);
+        }else if(opcode == ROL_ZEROPAGEX_36){
+            char carryFuture = 0;
+            if (((dataBus) & 0x80) == 0x80){
+                carryFuture = 1;
+            }
+            dataBus = dataBus << 1;
+            if((statusFlag & CPUFLAGS::CARRY) == CPUFLAGS::CARRY){
+                dataBus |= 1;
+            }
+            if(carryFuture == 1){
+                SetFlag(CARRY);
+            }else{
+                ClearFlag(CARRY);
+            }
+            isZero(dataBus);
+            isNegative(dataBus);
+        }else if(opcode == ROR_ZEROPAGEX_76){
+            char carryFuture = 0; //value bit 0
+            if (((dataBus) & 0x01) == 0x01){
+                carryFuture = 1;
+            }
+
+            dataBus = dataBus >> 1;
+            if((statusFlag & CPUFLAGS::CARRY) == CPUFLAGS::CARRY){
+                dataBus |= 0x80;
+            }
+            if(carryFuture == 1){
+                SetFlag(CARRY);
+            }else{
+                ClearFlag(CARRY);
+            }
+            isZero(dataBus);
+            isNegative(dataBus);
+        }
+        cycleCounter++;
+    }else if(cycleCounter == 5){
+        StoreInCPUMemory(dataBus, dataAddress);
+        cycleCounter++;
+    }
+}
+
+void CPU6502::ZeroPageXWriteIns() {
+    if(cycleCounter == 1){
+        dataAddress = emulator.Fetch(pc);
+        pc++;
+    }else if(cycleCounter == 2){
+        dataBus = emulator.Fetch(dataAddress); // Dummy read
+        dataAddress += registerX;
+    }else if(cycleCounter == 3){
+        if(opcode == STA_ZEROPAGEX_95){
+            StoreInCPUMemory(accumulator,dataAddress);
+        }else if(opcode == STY_ZEROPAGEX_94){
+            StoreInCPUMemory(registerY,dataAddress);
+        }
+        cycleCounter++;
+    }
+}
+
 // (LDA, LDX, LDY, EOR, AND, ORA, ADC, SBC, CMP, BIT, LAX, LAE, SHS, NOP)
 // 4 or 5 Max cycles
 void CPU6502::AbsoluteXReadIns() {
@@ -764,7 +873,7 @@ void CPU6502::AbsoluteXReadModWriteIns() {
             
             isZero(dataBus);
             isNegative(dataBus);
-        }else if(opcode != ROL_ABSOLUTEX_3E){
+        }else if(opcode == ROL_ABSOLUTEX_3E){
             char carryFuture = 0;
             if (((dataBus) & 0x80) == 0x80){
                 carryFuture = 1;
@@ -874,14 +983,14 @@ void CPU6502::AbsoluteYReadModWriteIns() {
         pc++;
     }else if(cycleCounter == 2){
         dataAddress = (emulator.Fetch(pc) << 8) | dataBus;
-        dataAddress += registerX;
+        dataAddress += registerY;
         pc++;
     }else if(cycleCounter == 3){
         // add 1 cycle by default because
         // the processor cannot undo a write to an invalid
         // address, it always reads from the address first.
         dataBus = emulator.Fetch(dataAddress);
-        if(((dataAddress-registerX) & 0xFF00) != (dataAddress & 0xFF00) ){
+        if(((dataAddress-registerY) & 0xFF00) != (dataAddress & 0xFF00) ){
             // dataAddress += 0x100; // page crossing add 1 cycle
         }
     }else if(cycleCounter == 4){
@@ -910,7 +1019,7 @@ void CPU6502::AbsoluteYWriteIns() {
         // the processor cannot undo a write to an invalid
         // address, it always reads from the address first.
         dataBus = emulator.Fetch(dataAddress);
-        if(((dataAddress-registerX) & 0xFF00) != (dataAddress & 0xFF00) ){
+        if(((dataAddress-registerY) & 0xFF00) != (dataAddress & 0xFF00) ){
             // dataAddress += 0x100; // page crossing add 1 cycle
         }
     }else if(cycleCounter == 4){
@@ -968,9 +1077,7 @@ void CPU6502::Ins_ADC(){
         ZeroPageReadIns();
     }else if(opcode == ADC_ZEROPAGEX_75){
         // max 4 cycles
-        dataAddress = FetchZeroPageX(pc);
-        pc++;
-        dataBus = emulator.Fetch(dataAddress);
+        ZeroPageXReadIns();
     }else if(opcode == ADC_ABSOLUTE_6D){
         // max 4 cycles
         AbsoluteReadIns();
@@ -1044,15 +1151,8 @@ void CPU6502::Ins_AND()
         }
     }else if(opcode == AND_ZEROPAGEX_35){
         // max 4 cycles
-        if(cycleCounter == 1){
-            dataAddress = emulator.Fetch(pc);
-            pc++;
-        }else if(cycleCounter == 2){
-            dataBus = emulator.Fetch(dataAddress); // dummy read
-            dataAddress += registerX;
-        }else if(cycleCounter == 3){
-            dataBus = emulator.Fetch(dataAddress);
-
+        ZeroPageXReadIns();
+        if(cycleCounter == cycleCounterMax){
             accumulator = accumulator & dataBus;
             isZero(accumulator);
             isNegative(accumulator);
@@ -1093,7 +1193,7 @@ void CPU6502::Ins_AND()
         dataBus = emulator.Fetch(dataAddress);
     }
 
-    if(opcode != AND_ZEROPAGEX_35 && opcode != AND_IMMEDIATE_29 && opcode != AND_ZEROPAGE_25 && opcode != AND_ABSOLUTEX_3D && opcode != AND_ABSOLUTE_2D){       
+    if(opcode != AND_ZEROPAGEX_35 && opcode != AND_IMMEDIATE_29 && opcode != AND_ZEROPAGE_25 && opcode != AND_ABSOLUTEX_3D && opcode != AND_ABSOLUTE_2D && opcode != AND_ABSOLUTEY_39){       
         printf("AND not work: 0x%X\n",opcode);
         while (true){}
         
@@ -1123,23 +1223,7 @@ void CPU6502::Ins_ASL()
     }else if(opcode == ASL_ABSOLUTE_0E){
         AbsoluteReadModWriteIns();
     }else if(opcode == ASL_ZEROPAGEX_16){
-        switch (cycleCounter){
-        case 1:
-            dataAddress = FetchZeroPageX(pc);
-            pc++;
-            break;
-        case 2:
-        case 3:
-            //cycle 3 and 4
-            cycleCounter++;
-            break;
-        case 4:
-            //cycle 5
-            // value = emulator.Fetch(dataAddress);
-            break;
-        default:
-            break;
-        }
+        ZeroPageXReadModWriteIns();
     }else if(opcode == ASL_ABSOLUTEX_1E){
         AbsoluteXReadModWriteIns();
     }
@@ -1508,14 +1592,8 @@ void CPU6502::Ins_CMP() {
         }
     }else if(opcode == CMP_ZEROPAGEX_D5){
         // max cycle 4
-        if(cycleCounter == 1){
-            dataAddress = emulator.Fetch(pc); // 00bb
-            pc++;
-        }else if(cycleCounter == 2){
-            emulator.Fetch(dataAddress); // Dummy Read
-            dataAddress += registerX; // 00bb + X
-        }else if(cycleCounter == 3){
-            dataBus = emulator.Fetch(dataAddress);
+        ZeroPageXReadIns();
+        if(cycleCounter == cycleCounterMax){
             if(accumulator >= dataBus){
                 SetFlag(CPUFLAGS::CARRY);
             }else{
@@ -1675,24 +1753,7 @@ void CPU6502::Ins_DEC() {
         ZeroPageReadModWriteIns();
     }else if(opcode == DEC_ZEROPAGEX_D6){
         // max cycle 6
-        if(cycleCounter == 1){
-            dataAddress = emulator.Fetch(pc);
-            pc++;
-        }else if(cycleCounter == 2){
-            dataBus = emulator.Fetch(dataAddress); // dummy read
-            dataAddress += registerX;
-        }else if(cycleCounter == 3){
-            dataBus = emulator.Fetch(dataAddress);
-        }else if(cycleCounter == 4){
-            StoreInCPUMemory(dataBus,dataAddress); // dummy store
-            dataBus--;
-            isZero(dataBus);
-            isNegative(dataBus);
-            cycleCounter++;
-        }else if(cycleCounter == 5){
-            StoreInCPUMemory(dataBus, dataAddress);
-            cycleCounter++;
-        }
+        ZeroPageXReadModWriteIns();
     }else if(opcode == DEC_ABSOLUTE_CE){
         // max cycle 6
         AbsoluteReadModWriteIns();
@@ -1746,8 +1807,12 @@ void CPU6502::Ins_EOR() {
         }
     }else if(opcode == EOR_ZEROPAGEX_55){
         // max cycles 4
-        dataAddress = FetchZeroPageX(pc);
-        pc++;
+        ZeroPageXReadIns();
+        if(cycleCounter == cycleCounterMax){
+            accumulator ^= dataBus;
+            isZero(accumulator);
+            isNegative(accumulator);
+        }
     }else if(opcode == EOR_ABSOLUTE_4D){
         // max cycles 4
         AbsoluteReadIns();
@@ -1799,24 +1864,7 @@ void CPU6502::Ins_INC() {
         ZeroPageReadModWriteIns();
     } else if(opcode == INC_ZEROPAGEX_F6){
         // max cycles 6
-        if(cycleCounter == 1){
-            dataAddress = emulator.Fetch(pc); // 00bb
-            pc++;
-        }else if(cycleCounter == 2){
-            dataBus = emulator.Fetch(dataAddress); // dummy read
-            dataAddress += registerX;
-        }else if(cycleCounter == 3){
-            dataBus = emulator.Fetch(dataAddress);
-        }else if(cycleCounter == 4){
-            StoreInCPUMemory(dataBus, dataAddress);
-            dataBus++;
-            isZero(dataBus);
-            isNegative(dataBus);
-            cycleCounter++;
-        }else if(cycleCounter == 5){
-            StoreInCPUMemory(dataBus, dataAddress);
-            cycleCounter++;
-        }
+        ZeroPageXReadModWriteIns();
     } else if(opcode == INC_ABSOLUTE_EE){
         // max cycles 6
         AbsoluteReadModWriteIns();
@@ -1921,16 +1969,10 @@ void CPU6502::Ins_LDA(){
             accumulator = dataBus;
         }
     }else if(opcode == LDA_ZEROPAGEX_B5){
-        if(cycleCounter == 1){
-            //cycle 2
-            dataAddress = emulator.Fetch(pc);
-            pc++;
-        }else if(cycleCounter == 2){
+        ZeroPageXReadIns();
+        if(cycleCounter == cycleCounterMax){
             //cycle 3
-            emulator.Fetch(dataAddress); // DUMMY READ
-            dataAddress += registerX;
-        }else if(cycleCounter == 3){
-            accumulator = emulator.Fetch(dataAddress);
+            accumulator = dataBus;
         }
     }else if(opcode == LDA_ABSOLUTE_AD){
         AbsoluteReadIns();
@@ -2092,17 +2134,10 @@ void CPU6502::Ins_LDY(){
             isNegative(registerY);
         }
     }else if (opcode == LDY_ZEROPAGEX_B4){
-        if(cycleCounter == 1){
-            // cycle 2
-            dataAddress = emulator.Fetch(pc); // 00bb
-            pc++;
-        }else if(cycleCounter == 2){
-            // cycle 3
-            emulator.Fetch(dataAddress); //dummy read
-            dataAddress += registerX; // 00bb + X
-        }else if(cycleCounter == 3){
-            // cycle 4
-            registerY = emulator.Fetch(dataAddress);
+        ZeroPageXReadIns();
+        if(cycleCounter == cycleCounterMax){
+            //cycle 3
+            registerY = dataBus;
             isZero(registerY);
             isNegative(registerY);
         }
@@ -2156,9 +2191,7 @@ void CPU6502::Ins_LSR(){
     }else if(opcode == LSR_ZEROPAGE_46){
         ZeroPageReadModWriteIns();
     }else if(opcode == LSR_ZEROPAGEX_56){
-        dataAddress = FetchZeroPageX(pc);
-        pc++;
-        dataBus = emulator.Fetch(dataAddress);
+        ZeroPageXReadModWriteIns();
     }else if(opcode == LSR_ABSOLUTEX_5E){
         AbsoluteXReadModWriteIns();
     }
@@ -2224,13 +2257,12 @@ void CPU6502::Ins_ORA()
             cycleCounter++;
         }
     }else if(opcode == ORA_ZEROPAGEX_15){
-        if(cycleCounter == 1){
-            // cycle 2
-            dataAddress = FetchZeroPageX(pc);
-            pc++;
-        }else if(cycleCounter == 2 || cycleCounter == 3){
-            // cycle 3 and cycle 4
-            cycleCounter++;
+        ZeroPageXReadIns();
+        if(cycleCounter == cycleCounterMax){
+            // cycle 4
+            accumulator |= dataBus;
+            isZero(accumulator);
+            isNegative(accumulator);
         }
     }else if(opcode == ORA_ABSOLUTEY_19){
         AbsoluteYReadIns();
@@ -2336,8 +2368,7 @@ void CPU6502::Ins_ROL()
         ZeroPageReadModWriteIns();
     }else if(opcode == ROL_ZEROPAGEX_36){
         // max 6 cycles
-        dataAddress = FetchZeroPageX(pc);
-        pc++;
+        ZeroPageXReadModWriteIns();
     }else if(opcode == ROL_ABSOLUTE_2E){
         // max 6 cycles
         AbsoluteReadModWriteIns();
@@ -2383,8 +2414,7 @@ void CPU6502::Ins_ROR() {
         ZeroPageReadModWriteIns();
     }else if(opcode == ROR_ZEROPAGEX_76){
         // max 6 cycles
-        dataAddress = FetchZeroPageX(pc);
-        pc++;
+        ZeroPageXReadModWriteIns();
     }else if(opcode == ROR_ABSOLUTE_6E){
         // max 6 cycles
         AbsoluteReadModWriteIns();
@@ -2496,8 +2526,27 @@ void CPU6502::Ins_SBC() {
         }
     }else if(opcode == SBC_ZEROPAGEX_F5){
         // max 4 cycles
-        dataAddress = FetchZeroPageX(pc);
-        pc++;
+        ZeroPageXReadIns();
+        if(cycleCounter == cycleCounterMax){
+            unsigned char result = accumulator;
+            result -= dataBus;
+            if((statusFlag & CPUFLAGS::CARRY) != CPUFLAGS::CARRY){
+                result -= 1;
+            }
+            if(((result ^ accumulator) & (result ^ (~dataBus)) & 0x80) != 0){
+                SetFlag(CPUFLAGS::OVERFLOW);
+            }else{
+                ClearFlag(CPUFLAGS::OVERFLOW);
+            }
+            if((result & 0x80) != 0x80){
+                SetFlag(CPUFLAGS::CARRY);
+            }else{
+                ClearFlag(CPUFLAGS::CARRY);
+            }
+            isZero(result);
+            isNegative(result);
+            accumulator = result;
+        }
     }else if(opcode == SBC_ABSOLUTE_ED){
         // max 4 cycles
         AbsoluteReadIns();
@@ -2587,7 +2636,7 @@ void CPU6502::Ins_SBC() {
         pc++;
     }
 
-    if(opcode != SBC_ZEROPAGE_E5 && opcode != SBC_IMMEDIATE_E9 && opcode != SBC_ABSOLUTEY_F9 &&  opcode != SBC_ABSOLUTEX_FD && opcode != SBC_ABSOLUTE_ED){
+    if(opcode != SBC_ZEROPAGE_E5 && opcode != SBC_IMMEDIATE_E9 && opcode != SBC_ABSOLUTEY_F9 &&  opcode != SBC_ABSOLUTEX_FD && opcode != SBC_ABSOLUTE_ED && opcode != SBC_ZEROPAGEX_F5){
         printf("SBC NOT WORK, OPCODE: 0x%X\n",opcode);
         while (true)
         {
@@ -2625,17 +2674,7 @@ void CPU6502::Ins_STA(){
         ZeroPageWriteIns();
     }else if(opcode == STA_ZEROPAGEX_95){
         // max 4 cycles
-        if(cycleCounter == 1){
-            dataAddress = emulator.Fetch(pc); // 00BB
-            pc++;
-        }else if(cycleCounter == 2){
-            emulator.Fetch(dataAddress); // DUMMY READ
-            dataAddress += registerX;
-        }else if(cycleCounter == 3){
-            // cycle 4
-            StoreInCPUMemory(accumulator, dataAddress);
-            cycleCounter++;
-        }
+        ZeroPageXWriteIns();
     }else if(opcode == STA_ABSOLUTE_8D){
         AbsoluteWriteIns();
     }else if(opcode == STA_ABSOLUTEX_9D){
@@ -2711,37 +2750,18 @@ void CPU6502::Ins_STX()
         
     }
 }
-//CYCLE ACCURACY
-// 84, 8C
-void CPU6502::Ins_STY()
-{
+
+//CYCLE ACCURACY: ALL
+void CPU6502::Ins_STY(){
     if(opcode == STY_ZEROPAGE_84){
         //max 3 cycles
         ZeroPageWriteIns();
     }else if(opcode == STY_ZEROPAGEX_94){
         //max 4 cycles
-        if(cycleCounter == 1){
-            dataAddress = emulator.Fetch(pc); // 00bb
-            pc++;
-        }else if(cycleCounter == 2){
-            emulator.Fetch(dataAddress); // dummy read
-            dataAddress += registerX;
-        } else if(cycleCounter == 3){
-            StoreInCPUMemory(registerY,dataAddress);
-            cycleCounter++;
-        }
+        ZeroPageXWriteIns();
     }else if(opcode == STY_ABSOLUTE_8C){
         //max 4 cycles
         AbsoluteWriteIns();
-    }
-
-    if(opcode != STY_ZEROPAGE_84 && opcode != STY_ABSOLUTE_8C && opcode != STY_ZEROPAGEX_94){
-        printf("sty not work, OPCODE: 0x%X, PC: 0x%X\n",opcode,pc);
-        while (true)
-        {
-            /* code */
-        }
-        
     }
 }
 
@@ -3574,8 +3594,8 @@ int main(int argc, char const *argv[])
     SetTargetFPS(60);               // Set our game to run at 60 frames-per-second
     //--------------------------------------------------------------------------------------
 
-    // emulator.Initialize("DonkeyK.nes");
-    emulator.Initialize("Super_mario_brothers.nes");
+    emulator.Initialize("DonkeyK.nes");
+    // emulator.Initialize("Super_mario_brothers.nes");
     // emulator.apu.Initialize();
     
     RenderTexture2D target = LoadRenderTexture(256, 240);
