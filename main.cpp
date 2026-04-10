@@ -444,43 +444,6 @@ unsigned short CPU6502::FetchZeroPageY(unsigned short address){
     unsigned short newAddress = (unsigned short) (0x0000 | emulator.Fetch(address)) + registerY;
     return newAddress;
 }
-unsigned short CPU6502::FetchRelative(unsigned short address){
-    unsigned short newAddress = 0;
-    return newAddress;
-}
-unsigned short CPU6502::FetchAbsoluteX(unsigned short address){ 
-    unsigned short newAddress = (unsigned short) (emulator.Fetch(address) | emulator.Fetch(address+1) << 8);
-    newAddress += registerX;
-    return newAddress;
-}
-unsigned short CPU6502::FetchAbsoluteY(unsigned short address){
-    unsigned short newAddress = (unsigned short) (emulator.Fetch(address) | emulator.Fetch(address+1) << 8);
-    newAddress += registerY;
-    return newAddress;
-}
-unsigned short CPU6502::FetchIndirect(unsigned short address){ // 4 Cycles
-    unsigned short Address1 = (unsigned short) (emulator.Fetch(address) | emulator.Fetch(address)); //ccbb = xx
-    unsigned short Address2 = Address1 + 1; //ccbb + 1 = yy
-    unsigned short newAddress = ((unsigned short) (emulator.Fetch(Address1) | emulator.Fetch(Address2)<<8)); //yyxx
-    return newAddress;
-}
-unsigned short CPU6502::FetchIndirectX(unsigned short address){ // 3 Cycles
-    unsigned char bb = emulator.Fetch(address); //bb
-    unsigned short address1 = (unsigned short) (0x0000 | bb) + registerX; //00bb + RegisterX = xx
-    unsigned short address2 = address1 + 1; //00bb + RegisterX + 1 = yy
-    unsigned short newAddress = ((unsigned short) (emulator.Fetch(address1) | emulator.Fetch(address2)<<8)); //yyxx
-    return newAddress;
-}
-
-unsigned short CPU6502::FetchIndirectY(unsigned short address){ // 3 Cycles
-    unsigned char bb = emulator.Fetch(address); //bb
-    unsigned short zeroAddress1 = (unsigned short) (0x0000 | bb); //00bb = xx
-    unsigned short zeroAddress2 = zeroAddress1 + 1; //00bb + 1 = yy
-    unsigned char res1 = emulator.Fetch(zeroAddress1);
-    unsigned char res2 = emulator.Fetch(zeroAddress2);
-    unsigned short newAddress = ((unsigned short) (res1 | res2<<8)) + registerY; //yyxx + RegisterY
-    return newAddress;
-}
 
 // (LDA, LDX, LDY, EOR, AND, ORA, ADC, SBC, CMP, BIT, LAX, NOP)
 void CPU6502::AbsoluteReadIns(){
@@ -1030,6 +993,91 @@ void CPU6502::AbsoluteYWriteIns() {
     }
 }
 
+// (LDA, ORA, EOR, AND, ADC, CMP, SBC, LAX)
+void CPU6502::IndirectXReadIns() {
+    if(cycleCounter == 1){
+        dataAddress = emulator.Fetch(pc); // 00bb
+        pc++;
+    }else if(cycleCounter == 2){
+        dataBus = emulator.Fetch(dataAddress); // Dummy read
+        dataAddress += registerX; // 00bb + X
+    }else if(cycleCounter == 3){
+        dataBus = emulator.Fetch(dataAddress);
+    }else if(cycleCounter == 4){
+        dataAddress = (emulator.Fetch(dataAddress+1)<<8) | dataBus;
+    }else if(cycleCounter == 5){
+        dataBus = emulator.Fetch(dataAddress);
+    }
+}
+
+void CPU6502::IndirectXReadModWriteIns() {}
+
+// (STA, SAX)
+void CPU6502::IndirectXWriteIns() {
+    if(cycleCounter == 1){
+        dataAddress = emulator.Fetch(pc); // 00bb
+        pc++;
+    }else if(cycleCounter == 2){
+        dataBus = emulator.Fetch(dataAddress); // Dummy read
+        dataAddress += registerX; // 00bb + X
+    }else if(cycleCounter == 3){
+        dataBus = emulator.Fetch(dataAddress);
+    }else if(cycleCounter == 4){
+        dataAddress = (emulator.Fetch(dataAddress+1)<<8) | dataBus;
+    }else if(cycleCounter == 5){
+        if(opcode == STA_INDIRECTX_81){
+            StoreInCPUMemory(accumulator, dataAddress);
+        }
+        cycleCounter++;
+    }
+}
+
+void CPU6502::IndirectYReadIns() {
+    if(cycleCounter == 1){
+        dataAddress = emulator.Fetch(pc); // 00bb
+        pc++;
+    }else if(cycleCounter == 2){
+        dataBus = emulator.Fetch(dataAddress); // xx
+    }else if(cycleCounter == 3){
+        dataAddress = (emulator.Fetch(dataAddress+1)<<8) | dataBus; // yyxx
+        dataAddress += registerY; // yyxx + Y
+    }else if(cycleCounter == 4){
+        dataBus = emulator.Fetch(dataAddress);
+        if(((dataAddress-registerY) & 0xFF00) != (dataAddress & 0xFF00)){
+            cycleCounterMax++; // page crossing add 1 cycle
+        }
+    }else if(cycleCounter == 5){
+        cycleCounter++;
+    }
+}
+
+void CPU6502::IndirectYReadModWriteIns() {}
+
+void CPU6502::IndirectYWriteIns() {
+    if(cycleCounter == 1){
+        dataAddress = emulator.Fetch(pc); // 00bb
+        pc++;
+    }else if(cycleCounter == 2){
+        dataBus = emulator.Fetch(dataAddress); // xx
+    }else if(cycleCounter == 3){
+        dataAddress = (emulator.Fetch(dataAddress+1)<<8) | dataBus; // yyxx
+        dataAddress += registerY; // yyxx + Y
+    }else if(cycleCounter == 4){
+        // add 1 cycle by default because
+        // the processor cannot undo a write to an invalid
+        // address, it always reads from the address first.
+        dataBus = emulator.Fetch(dataAddress);
+        if(((dataAddress-registerY) & 0xFF00) != (dataAddress & 0xFF00) ){
+            // dataAddress += 0x100; // page crossing add 1 cycle
+        }
+    }else if(cycleCounter == 5){
+        if(opcode == STA_INDIRECTY_91){
+            StoreInCPUMemory(accumulator, dataAddress);
+        }
+        cycleCounter++;
+    }
+}
+
 void CPU6502::SetFlag(CPUFLAGS insertFlag)
 {
     statusFlag |= insertFlag;
@@ -1089,23 +1137,10 @@ void CPU6502::Ins_ADC(){
         AbsoluteYReadIns();
     }else if(opcode == ADC_INDIRECTX_61){
         // max 6 cycles
-        dataAddress = FetchIndirectX(pc);
-        pc++;
-        dataBus = emulator.Fetch(dataAddress);
+        IndirectXReadIns();
     }else if(opcode == ADC_INDIRECTY_71){
         // max 5 cycles
-        dataAddress = FetchIndirectY(pc);
-        pc++;
-        dataBus = emulator.Fetch(dataAddress);
-    }
-
-    if(opcode != ADC_IMMEDIATE_69 && opcode != ADC_ZEROPAGE_65 && opcode != ADC_ABSOLUTE_6D && opcode != ADC_ABSOLUTEX_7D && opcode != ADC_ABSOLUTEY_79){
-        printf("ADC NOT WORK: 0x%X\n",opcode);
-        printf("pc: 0x%x\n",pc);
-        while (true)
-        {
-            /* code */
-        }
+        IndirectYReadIns();
     }
 
     if(cycleCounter == cycleCounterMax){
@@ -1130,78 +1165,43 @@ void CPU6502::Ins_ADC(){
     }
 }
 
-//CYCLE ACCURACY
-// 29, 25, 2D, 35, 3D
 void CPU6502::Ins_AND()
 {
     if(opcode == AND_IMMEDIATE_29){
         // cycle 2
         dataBus = emulator.Fetch(pc);
         pc++;
-        accumulator = accumulator & dataBus;
-        isZero(accumulator);
-        isNegative(accumulator);
     }else if(opcode == AND_ZEROPAGE_25){
         // max 3 cycles
         ZeroPageReadIns();
-        if(cycleCounter == cycleCounterMax){
-            accumulator = accumulator & dataBus;
-            isZero(accumulator);
-            isNegative(accumulator);
-        }
     }else if(opcode == AND_ZEROPAGEX_35){
         // max 4 cycles
         ZeroPageXReadIns();
-        if(cycleCounter == cycleCounterMax){
-            accumulator = accumulator & dataBus;
-            isZero(accumulator);
-            isNegative(accumulator);
-        }
     }else if(opcode == AND_ABSOLUTE_2D){
         // max 4 cycles
         AbsoluteReadIns();
-        if(cycleCounter == cycleCounterMax){
-            accumulator = accumulator & dataBus;
-            isZero(accumulator);
-            isNegative(accumulator);
-        }
     }else if(opcode == AND_ABSOLUTEX_3D){
         // max 4 or 5 cycles
         AbsoluteXReadIns();
-        if(cycleCounter == cycleCounterMax){
-            accumulator = accumulator & dataBus;
-            isZero(accumulator);
-            isNegative(accumulator);
-        }
     }else if(opcode == AND_ABSOLUTEY_39){
         // max 4 or 5 cycles
         AbsoluteYReadIns();
-        if(cycleCounter == cycleCounterMax){
-            accumulator = accumulator & dataBus;
-            isZero(accumulator);
-            isNegative(accumulator);
-        }
     }else if(opcode == AND_INDIRECTX_21){
         // max 6 cycles
-        dataAddress = FetchIndirectX(pc);
-        pc++;
-        dataBus = emulator.Fetch(dataAddress);
+        IndirectXReadIns();
     }else if(opcode == AND_INDIRECTY_31){
         // max 5 or 6 cycles
-        dataAddress = FetchIndirectY(pc);
-        pc++;
-        dataBus = emulator.Fetch(dataAddress);
+        IndirectYReadIns();
     }
-
-    if(opcode != AND_ZEROPAGEX_35 && opcode != AND_IMMEDIATE_29 && opcode != AND_ZEROPAGE_25 && opcode != AND_ABSOLUTEX_3D && opcode != AND_ABSOLUTE_2D && opcode != AND_ABSOLUTEY_39){       
-        printf("AND not work: 0x%X\n",opcode);
-        while (true){}
-        
+    
+    if(cycleCounter == cycleCounterMax){
+        accumulator = accumulator & dataBus;
+        isZero(accumulator);
+        isNegative(accumulator);
     }
 }
 
-// CYCLE ACCURACY:
-// 06, 0A
+// CYCLE ACCURACY: ALL
 void CPU6502::Ins_ASL()
 {
     if(opcode == ASL_ZEROPAGE_06){
@@ -1226,15 +1226,6 @@ void CPU6502::Ins_ASL()
         ZeroPageXReadModWriteIns();
     }else if(opcode == ASL_ABSOLUTEX_1E){
         AbsoluteXReadModWriteIns();
-    }
-
-    if(opcode != ASL_ZEROPAGE_06 && opcode != ASL_ACCUMULATOR_0A && opcode != ASL_ABSOLUTEX_1E){
-        printf("ASL NOT WORK, OPCODE: 0x%X\n",opcode);
-        while (true)
-        {
-            /* code */
-        }
-        
     }
 }
 
@@ -1556,13 +1547,35 @@ void CPU6502::Ins_CLV() {
     cycleCounter++;
 }
 
-//CYCLE ACCURACY:
-// C9, CD
 void CPU6502::Ins_CMP() {
     if(opcode == CMP_IMMEDIATE_C9){
         // max cycle 2
         dataBus = emulator.Fetch(pc);
         pc++;
+    }else if(opcode == CMP_ZEROPAGE_C5){
+        // max cycle 3
+        ZeroPageReadIns();
+    }else if(opcode == CMP_ZEROPAGEX_D5){
+        // max cycle 4
+        ZeroPageXReadIns();
+    }else if(opcode == CMP_ABSOLUTE_CD){
+        // max cycle 4
+        AbsoluteReadIns();
+    }else if(opcode == CMP_ABSOLUTEX_DD){
+        // max cycle 4 or 5
+        AbsoluteXReadIns();
+    }else if(opcode == CMP_ABSOLUTEY_D9){
+        // max cycle 4 or 5
+        AbsoluteYReadIns();
+    }else if(opcode == CMP_INDIRECTX_C1){
+        // max cycle 6
+        IndirectXReadIns();
+    }else if(opcode == CMP_INDIRECTY_D1){
+        // max cycle 5 or 6
+        IndirectYReadIns();
+    }
+    
+    if(cycleCounter == cycleCounterMax){
         if(accumulator >= dataBus){
             SetFlag(CPUFLAGS::CARRY);
         }else{
@@ -1574,110 +1587,9 @@ void CPU6502::Ins_CMP() {
             ClearFlag(CPUFLAGS::ZERO);
         }
         isNegative((unsigned char)(accumulator-dataBus));
-    }else if(opcode == CMP_ZEROPAGE_C5){
-        // max cycle 3
-        ZeroPageReadIns();
-        if(cycleCounter == cycleCounterMax){
-            if(accumulator >= dataBus){
-                SetFlag(CPUFLAGS::CARRY);
-            }else{
-                ClearFlag(CPUFLAGS::CARRY);
-            }
-            if(accumulator == dataBus){
-                SetFlag(CPUFLAGS::ZERO);
-            }else{
-                ClearFlag(CPUFLAGS::ZERO);
-            }
-            isNegative((unsigned char)(accumulator-dataBus));
-        }
-    }else if(opcode == CMP_ZEROPAGEX_D5){
-        // max cycle 4
-        ZeroPageXReadIns();
-        if(cycleCounter == cycleCounterMax){
-            if(accumulator >= dataBus){
-                SetFlag(CPUFLAGS::CARRY);
-            }else{
-                ClearFlag(CPUFLAGS::CARRY);
-            }
-            if(accumulator == dataBus){
-                SetFlag(CPUFLAGS::ZERO);
-            }else{
-                ClearFlag(CPUFLAGS::ZERO);
-            }
-            isNegative((unsigned char)(accumulator-dataBus));
-        }
-    }else if(opcode == CMP_ABSOLUTE_CD){
-        // max cycle 4
-        AbsoluteReadIns();
-        if(cycleCounter == cycleCounterMax){
-            if(accumulator >= dataBus){
-                SetFlag(CPUFLAGS::CARRY);
-            }else{
-                ClearFlag(CPUFLAGS::CARRY);
-            }
-            if(accumulator == dataBus){
-                SetFlag(CPUFLAGS::ZERO);
-            }else{
-                ClearFlag(CPUFLAGS::ZERO);
-            }
-            isNegative((unsigned char)(accumulator-dataBus));
-        }
-    }else if(opcode == CMP_ABSOLUTEX_DD){
-        // max cycle 4 or 5
-        AbsoluteXReadIns();
-        if(cycleCounter == cycleCounterMax){
-            if(accumulator >= dataBus){
-                SetFlag(CPUFLAGS::CARRY);
-            }else{
-                ClearFlag(CPUFLAGS::CARRY);
-            }
-            if(accumulator == dataBus){
-                SetFlag(CPUFLAGS::ZERO);
-            }else{
-                ClearFlag(CPUFLAGS::ZERO);
-            }
-            isNegative((unsigned char)(accumulator-dataBus));
-        }
-    }else if(opcode == CMP_ABSOLUTEY_D9){
-        // max cycle 4 or 5
-        AbsoluteYReadIns();
-        if(cycleCounter == cycleCounterMax){
-            if(accumulator >= dataBus){
-                SetFlag(CPUFLAGS::CARRY);
-            }else{
-                ClearFlag(CPUFLAGS::CARRY);
-            }
-            if(accumulator == dataBus){
-                SetFlag(CPUFLAGS::ZERO);
-            }else{
-                ClearFlag(CPUFLAGS::ZERO);
-            }
-            isNegative((unsigned char)(accumulator-dataBus));
-        }
-    }else if(opcode == CMP_INDIRECTX_C1){
-        // max cycle 6
-        dataAddress = FetchIndirectX(pc);
-        pc++;
-        dataBus = emulator.Fetch(dataAddress);
-    }else if(opcode == CMP_INDIRECTY_D1){
-        // max cycle 5 or 6
-        dataAddress = FetchIndirectY(pc);
-        CheckPageCrossing(pc);
-        pc++;
-        dataBus = emulator.Fetch(dataAddress);
-    }
-
-    if(opcode != CMP_IMMEDIATE_C9 && opcode != CMP_ZEROPAGEX_D5 && opcode != CMP_ABSOLUTEY_D9 && opcode != CMP_ABSOLUTEX_DD && opcode != CMP_ZEROPAGE_C5 && opcode != CMP_ABSOLUTE_CD){
-        printf("CMP NOT WORK opcode: 0x%X, PC: 0x%X\n",opcode,pc);
-        while (true)
-        {
-            /* code */
-        }
-        
     }
 }
 
-// CYCLE ACCURACY: ALL
 void CPU6502::Ins_CPX() {
     if(opcode == CPX_IMMEDIATE_E0){
         // max cycle 2
@@ -1707,8 +1619,6 @@ void CPU6502::Ins_CPX() {
     }
 }
 
-// Cycle Accuracy
-// C0, CC
 void CPU6502::Ins_CPY() {
     if(opcode == CPY_IMMEDIATE_C0){
         // max cycle 2
@@ -1735,18 +1645,9 @@ void CPU6502::Ins_CPY() {
         }
         isNegative((unsigned char)(registerY - dataBus));
     }
-    if(opcode != CPY_IMMEDIATE_C0 && opcode != CPY_ABSOLUTE_CC){
-        printf("CPY NOT WORK, OPCODE: 0x%X\n",opcode);
-        while (true)
-        {
-            /* code */
-        }
-        
-    }
 }
 
-//CYCLE ACCURACY
-//C6, D6, CE
+//CYCLE ACCURACY: ALL
 void CPU6502::Ins_DEC() {
     if(opcode == DEC_ZEROPAGE_C6){
         // max cycle 5
@@ -1760,14 +1661,6 @@ void CPU6502::Ins_DEC() {
     }else if(opcode == DEC_ABSOLUTEX_DE){
         // max cycle 7
         AbsoluteXReadModWriteIns();
-    }
-
-    if(opcode != DEC_ZEROPAGE_C6 && opcode != DEC_ZEROPAGEX_D6 && opcode != DEC_ABSOLUTEX_DE && opcode != DEC_ABSOLUTE_CE){
-        printf("DEC not work: 0x%X\n",opcode);
-        while (true)
-        {
-            /* code */
-        }
     }
 }
 
@@ -1787,74 +1680,38 @@ void CPU6502::Ins_DEY() {
     cycleCounter++;
 }
 
-// Cycle Accurate
-// 45, 49, 4D
 void CPU6502::Ins_EOR() {
     if(opcode == EOR_IMMEDIATE_49){
         // max cycles 2
         dataBus = emulator.Fetch(pc);
         pc++;
-        accumulator ^= dataBus;
-        isZero(accumulator);
-        isNegative(accumulator);
     }else if(opcode == EOR_ZEROPAGE_45){
         // max cycles 3
         ZeroPageReadIns();
-        if(cycleCounter == cycleCounterMax){
-            accumulator ^= dataBus;
-            isZero(accumulator);
-            isNegative(accumulator);
-        }
     }else if(opcode == EOR_ZEROPAGEX_55){
         // max cycles 4
         ZeroPageXReadIns();
-        if(cycleCounter == cycleCounterMax){
-            accumulator ^= dataBus;
-            isZero(accumulator);
-            isNegative(accumulator);
-        }
     }else if(opcode == EOR_ABSOLUTE_4D){
         // max cycles 4
         AbsoluteReadIns();
-        if(cycleCounter == cycleCounterMax){
-            accumulator ^= dataBus;
-            isZero(accumulator);
-            isNegative(accumulator);
-        }
     }else if(opcode == EOR_ABSOLUTEX_5D){
         // max cycles 4 or 5
         AbsoluteXReadIns();
-        if(cycleCounter == cycleCounterMax){
-            accumulator ^= dataBus;
-            isZero(accumulator);
-            isNegative(accumulator);
-        }
     }else if(opcode == EOR_ABSOLUTEY_59){
         // max cycles 4 or 5
         AbsoluteYReadIns();
-        if(cycleCounter == cycleCounterMax){
-            accumulator ^= dataBus;
-            isZero(accumulator);
-            isNegative(accumulator);
-        }
     }else if(opcode == EOR_INDIRECTX_41){
         // max cycles 6
-        dataAddress = FetchIndirectX(pc);
-        pc++;
+        IndirectXReadIns();
     }else if(opcode == EOR_INDIRECTY_51){
         // max cycles 5 or 6
-        dataAddress = FetchIndirectY(pc);
-        CheckPageCrossing(pc);
-        pc++;
+        IndirectYReadIns();
     }
 
-    if(opcode != EOR_ZEROPAGE_45 && opcode != EOR_ABSOLUTE_4D && opcode != EOR_IMMEDIATE_49){
-        printf("EOR not work: 0x%x, PC: 0x%X\n",opcode,pc);
-        while (true)
-        {
-            /* code */
-        }
-        
+    if(cycleCounter == cycleCounterMax){
+        accumulator ^= dataBus;
+        isZero(accumulator);
+        isNegative(accumulator);
     }
 }
 
@@ -1871,14 +1728,6 @@ void CPU6502::Ins_INC() {
     } else if(opcode == INC_ABSOLUTEX_FE){
         // max cycles 7
         AbsoluteXReadModWriteIns();
-    }
-
-    if(opcode != INC_ZEROPAGE_E6 && opcode != INC_ABSOLUTE_EE && opcode != INC_ZEROPAGEX_F6 && opcode != INC_ABSOLUTEX_FE){
-        printf("INC NOT WORK, OPCODE: 0x%X, PC:0x%X\n",opcode,pc);
-        while (true)
-        {
-            /* code */
-        }       
     }
 }
 
@@ -1955,8 +1804,6 @@ void CPU6502::Ins_JSR()
     }
 }
 
-//CYCLE ACCURACY:
-//A5, A9, AD, B1, BD, B5
 void CPU6502::Ins_LDA(){
     if(opcode == LDA_IMMEDIATE_A9){
         // cycle 2
@@ -1964,148 +1811,57 @@ void CPU6502::Ins_LDA(){
         pc++;
     }else if(opcode == LDA_ZEROPAGE_A5){
         ZeroPageReadIns();
-        if(cycleCounter == cycleCounterMax){
-            //cycle 3
-            accumulator = dataBus;
-        }
     }else if(opcode == LDA_ZEROPAGEX_B5){
         ZeroPageXReadIns();
-        if(cycleCounter == cycleCounterMax){
-            //cycle 3
-            accumulator = dataBus;
-        }
     }else if(opcode == LDA_ABSOLUTE_AD){
         AbsoluteReadIns();
-        if(cycleCounter == cycleCounterMax){
-            accumulator = dataBus;
-        }
     }else if(opcode == LDA_ABSOLUTEX_BD){
         AbsoluteXReadIns();
-        if(cycleCounter == cycleCounterMax){
-            accumulator = dataBus;
-        }
     }else if(opcode == LDA_ABSOLUTEY_B9){
         AbsoluteYReadIns();
-        if(cycleCounter == cycleCounterMax){
+    }else if(opcode == LDA_INDIRECTX_A1){
+        IndirectXReadIns();
+    }else if(opcode == LDA_INDIRECTY_B1){
+        IndirectYReadIns();
+    }
+    
+    if(cycleCounter == cycleCounterMax){
+        if(opcode != LDA_IMMEDIATE_A9){
             accumulator = dataBus;
         }
-    }else if(opcode == LDA_INDIRECTX_A1){
-        switch (cycleCounter)
-        {
-        case 1:
-            dataBus = emulator.Fetch(pc); // 00bb
-            pc++;
-            break;
-        case 2:
-            emulator.Fetch(dataBus); // dummy read
-            dataBus += registerX; // 00bb + X
-            break;
-        case 3:
-            //cycle 4
-            dataAddress = emulator.Fetch(dataBus); // 00bb + X = xx = low byte
-            dataBus++; // 00bb + X + 1 = yy = high byte
-            break;
-        case 4:
-            //cycle 5
-            dataAddress = (unsigned short) ((emulator.Fetch(dataBus)<<8) | dataAddress); // yyxx
-            break;
-        case 5:
-            //cycle 6
-            accumulator = emulator.Fetch(dataAddress);
-            break;
-        default:
-            printf("LDA_INDIRECTX_A1 ERROR\n");
-            while (true){}
-            break;
-        }
-    }else if(opcode == LDA_INDIRECTY_B1){
-        switch (cycleCounter){
-        case 1:
-            //cycle 2
-            dataBus = emulator.Fetch(pc); // bb
-            pc++;
-            break;
-        case 2:
-            //cycle 3
-            dataAddress = emulator.Fetch(dataBus); // 00bb = xx = low byte
-            dataBus++; // 00bb+1 = yy = high byte
-            break;
-        case 3:
-            //cycle 4
-            dataAddress = (unsigned short) ((emulator.Fetch(dataBus)<<8) | dataAddress); // yyxx
-            dataAddress += registerY; // yyxx + Register Y
-            break;
-        case 4:
-            //cycle 5
-            accumulator = emulator.Fetch(dataAddress);
-            if(((dataAddress-registerY) & 0xFF00) != (dataAddress & 0xFF00)){
-                cycleCounterMax++; // page crossing add 1 cycle
-            }
-            break;
-        case 5:
-            //cycle 6
-            cycleCounter++;
-            break;
-        default:
-            printf("LDA_INDIRECTX_B1 ERROR\n");
-            while (true){}
-            break;
-        }
-    }
-    if(opcode != LDA_ABSOLUTEY_B9 && opcode != LDA_ZEROPAGEX_B5 && opcode != LDA_ABSOLUTEX_BD &&opcode != LDA_ABSOLUTE_AD && opcode != LDA_ZEROPAGE_A5 && opcode != LDA_IMMEDIATE_A9 && opcode != LDA_INDIRECTY_B1){
-        printf("LDA NOT WORK: 0x%X\n",opcode);
-        while (true)
-        {
-            /* code */
-        }
-        
-    }
-
-    if(cycleCounter == cycleCounterMax){
         isZero(accumulator);
         isNegative(accumulator);
     }
 }
 
-// CYCLE ACCURACY:
-// A2, A6, AE
 void CPU6502::Ins_LDX(){
-    //TODO: needs to be based on cycles
     if(opcode == LDX_IMMEDIATE_A2){
         //cycle 2
         registerX = emulator.Fetch(pc);
         pc++;
-        isZero(registerX);
-        isNegative(registerX);
     }else if(opcode == LDX_ZEROPAGE_A6){
         // max cycle 3
         ZeroPageReadIns();
-        if(cycleCounter == cycleCounterMax){
-            registerX = dataBus;
-            isZero(registerX);
-            isNegative(registerX);
-        }
     }else if (opcode == LDX_ZEROPAGEY_B6){
         dataAddress = FetchZeroPageY(pc);
         pc++;
         registerX = emulator.Fetch(dataAddress);
     }else if(opcode == LDX_ABSOLUTE_AE){
         AbsoluteReadIns();
-        if(cycleCounter == cycleCounterMax){    
-            registerX = dataBus;
-            isZero(registerX);
-            isNegative(registerX);
-        }
     }else if(opcode == LDX_ABSOLUTEY_BE){
         AbsoluteYReadIns();
-         if(cycleCounter == cycleCounterMax){
-            registerX = dataBus;
-            isZero(registerX);
-            isNegative(registerX);
-        }
     }
 
-    if(opcode != LDX_IMMEDIATE_A2 && opcode != LDX_ZEROPAGE_A6 && opcode != LDX_ABSOLUTE_AE && opcode != LDX_ABSOLUTEY_BE){
+    
+    if(cycleCounter == cycleCounterMax){
+        if(opcode != LDX_IMMEDIATE_A2){
+            registerX = dataBus;
+        }
+        isZero(registerX);
+        isNegative(registerX);
+    }
+
+    if(opcode == LDX_ZEROPAGEY_B6){
         printf("LDX not work: 0x%x\n",opcode);
         while (true)
         {
@@ -2115,65 +1871,33 @@ void CPU6502::Ins_LDX(){
     }
 }
 
-//CYCLE ACCURACY
-// A0, B4, A4, AC
 void CPU6502::Ins_LDY(){
     if(opcode == LDY_IMMEDIATE_A0){
         //cycle 2
         registerY = emulator.Fetch(pc);
         pc++;
-        
-        isZero(registerY);
-        isNegative(registerY);
     }else if(opcode == LDY_ZEROPAGE_A4){
         // max cycle 3
         ZeroPageReadIns();
-        if(cycleCounter == cycleCounterMax){
-            registerY = dataBus;
-            isZero(registerY);
-            isNegative(registerY);
-        }
     }else if (opcode == LDY_ZEROPAGEX_B4){
         ZeroPageXReadIns();
-        if(cycleCounter == cycleCounterMax){
-            //cycle 3
-            registerY = dataBus;
-            isZero(registerY);
-            isNegative(registerY);
-        }
     }else if(opcode == LDY_ABSOLUTE_AC){
         AbsoluteReadIns();
-        if(cycleCounter == cycleCounterMax){
-            registerY = dataBus;
-            isZero(registerY);
-            isNegative(registerY);
-        }
     }else if(opcode == LDY_ABSOLUTEX_BC){
         // Max 4 or 5 cycles
         AbsoluteXReadIns();
-        if(cycleCounter == cycleCounterMax){
-            registerY = dataBus;
-            
-            isZero(registerY);
-            isNegative(registerY);
-        }
     }
 
-    if(opcode != LDY_IMMEDIATE_A0 && opcode != LDY_ZEROPAGEX_B4 && opcode != LDY_ZEROPAGE_A4 && opcode != LDY_ABSOLUTE_AC && opcode != LDY_ABSOLUTEX_BC){
-        printf("LDY not work: 0x%X, PC: 0x%X\n",opcode,pc);
-        while (true)
-        {
-            /* code */
-        }
-        
-    }
     
-    // isZero(registerY);
-    // isNegative(registerY);
+    if(cycleCounter == cycleCounterMax){
+        if(opcode != LDY_IMMEDIATE_A0){
+            registerY = dataBus;
+        }
+        isZero(registerY);
+        isNegative(registerY);
+    }
 }
 
-//CYCLE ACCURACY:
-//4A, 46
 void CPU6502::Ins_LSR(){
     if(opcode == LSR_ACCUMULATOR_4A){
         //Max 2 cycles
@@ -2195,101 +1919,40 @@ void CPU6502::Ins_LSR(){
     }else if(opcode == LSR_ABSOLUTEX_5E){
         AbsoluteXReadModWriteIns();
     }
-
-    if(opcode != LSR_ACCUMULATOR_4A && opcode != LSR_ZEROPAGE_46 && opcode != LSR_ABSOLUTE_4E){
-        printf("LSR NOT WORK: 0x%X\n",opcode);
-        while (true)
-        {
-            /* code */
-        }
-        
-    }
 }
 
 void CPU6502::Ins_NOP() {
     cycleCounter++;
 }
 
-// CYCLE ACCURACY
-// 5, 9, D
-void CPU6502::Ins_ORA()
-{
+void CPU6502::Ins_ORA(){
     if(opcode == ORA_INDIRECTX_01){
         // cycle 2
-        if(cycleCounter == 1){
-            dataAddress = FetchIndirectX(pc);
-            pc++;
-        }else if(cycleCounter == 4 || cycleCounter == 5){
-            //cycle 5 and 6
-            cycleCounter++;
-        }
+        IndirectXReadIns();
     }else if(opcode == ORA_ZEROPAGE_05){
         ZeroPageReadIns();
-        if(cycleCounter == cycleCounterMax){
-            //cycle 3
-            accumulator |= dataBus;
-            isZero(accumulator);
-            isNegative(accumulator);
-        }
     }else if(opcode == ORA_IMMEDIATE_09){
         // cycle 2
         dataBus = emulator.Fetch(pc);
         pc++;
+    }else if(opcode == ORA_ABSOLUTE_0D){
+        AbsoluteReadIns();
+    }else if(opcode == ORA_INDIRECTY_11){
+        IndirectYReadIns();
+    }else if(opcode == ORA_ZEROPAGEX_15){
+        ZeroPageXReadIns();
+    }else if(opcode == ORA_ABSOLUTEY_19){
+        AbsoluteYReadIns();
+    }else if(opcode == ORA_ABSOLUTEX_1D){
+        AbsoluteXReadIns();
+    }
+    
+    if(cycleCounter == cycleCounterMax){
+        //cycle 3
         accumulator |= dataBus;
         isZero(accumulator);
         isNegative(accumulator);
-    }else if(opcode == ORA_ABSOLUTE_0D){
-        AbsoluteReadIns();
-        if(cycleCounter == cycleCounterMax){
-            // cycle 4
-            accumulator |= dataBus;
-            isZero(accumulator);
-            isNegative(accumulator);
-        }
-    }else if(opcode == ORA_INDIRECTY_11){
-        // cycle 2
-        if(cycleCounter == 1){
-            dataAddress = FetchIndirectY(pc);
-            CheckPageCrossing(pc);
-            pc++;
-        }else if(cycleCounter == 4 || cycleCounter == 5){
-            //cycle 5 or cycle 6
-            cycleCounter++;
-        }
-    }else if(opcode == ORA_ZEROPAGEX_15){
-        ZeroPageXReadIns();
-        if(cycleCounter == cycleCounterMax){
-            // cycle 4
-            accumulator |= dataBus;
-            isZero(accumulator);
-            isNegative(accumulator);
-        }
-    }else if(opcode == ORA_ABSOLUTEY_19){
-        AbsoluteYReadIns();
-        if(cycleCounter == cycleCounterMax){
-            // cycle 4
-            accumulator |= dataBus;
-            isZero(accumulator);
-            isNegative(accumulator);
-        }
-    }else if(opcode == ORA_ABSOLUTEX_1D){
-        AbsoluteXReadIns();
-        if(cycleCounter == cycleCounterMax){
-            // cycle 4
-            accumulator |= dataBus;
-            isZero(accumulator);
-            isNegative(accumulator);
-        }
     }
-
-    if(opcode != ORA_ZEROPAGE_05 && opcode != ORA_IMMEDIATE_09 && opcode != ORA_ABSOLUTE_0D){
-        printf("ORA NOT WORK, OPCODE: 0x%X\n",opcode);
-        while (true)
-        {
-            /* code */
-        }
-    }
-    
 }
 
 void CPU6502::Ins_PHA() {
@@ -2342,10 +2005,7 @@ void CPU6502::Ins_PLP(){
     cycleCounter = cycleCounterMax;
 }
 
-// CYCLE ACCURACY:
-// 2A, 2E, 26
-void CPU6502::Ins_ROL()
-{
+void CPU6502::Ins_ROL(){
     if(opcode == ROL_ACCUMULATOR_2A){
         char carryFuture = 0;
         if (((accumulator) & 0x80) == 0x80){
@@ -2376,19 +2036,8 @@ void CPU6502::Ins_ROL()
         // max 7 cycles
         AbsoluteXReadModWriteIns();
     }
-
-    if(opcode != ROL_ACCUMULATOR_2A && opcode != ROL_ABSOLUTE_2E && opcode != ROL_ZEROPAGE_26){
-        printf("ROL NOT WORK OPCODE: 0x%X\n",opcode);
-        while (true)
-        {
-            /* code */
-        }
-    }
-    
 }
 
-// CYCLE ACCURACY:
-// 6A, 66, 6E
 void CPU6502::Ins_ROR() {
     if(opcode == ROR_ACCUMULATOR_6A){
         // max 2 cycles
@@ -2421,13 +2070,6 @@ void CPU6502::Ins_ROR() {
     }else if(opcode == ROR_ABSOLUTEX_7E){
         // max 7 cycles
         AbsoluteXReadModWriteIns();
-    }
-    if(opcode != ROR_ACCUMULATOR_6A && opcode != ROR_ZEROPAGE_66 && opcode != ROR_ABSOLUTE_6E && opcode != ROR_ABSOLUTEX_7E){
-        printf("ROR NOT WORK OPCODE: 0x%X\n",opcode);
-        while (true)
-        {
-            /* code */
-        }
     }
 }
 
@@ -2627,13 +2269,57 @@ void CPU6502::Ins_SBC() {
         }
     }else if(opcode == SBC_INDIRECTX_E1){
         // max 6 cycles
-        dataAddress = FetchIndirectX(pc);
-        pc++;
+        IndirectXReadIns();
+        if(cycleCounter == cycleCounterMax){
+            unsigned char result = accumulator;
+            result -= dataBus;
+            if((statusFlag & CPUFLAGS::CARRY) != CPUFLAGS::CARRY){
+                result -= 1;
+            }
+            if(((result ^ accumulator) & (result ^ (~dataBus)) & 0x80) != 0){
+                SetFlag(CPUFLAGS::OVERFLOW);
+                // printf("overflow set\n");
+            }else{
+                ClearFlag(CPUFLAGS::OVERFLOW);
+                // printf("overflow clear\n");
+            }
+            if((result & 0x80) != 0x80){
+                SetFlag(CPUFLAGS::CARRY);
+                // printf("carry set\n");
+            }else{
+                ClearFlag(CPUFLAGS::CARRY);
+                // printf("carry clear\n");
+            }
+            isZero(result);
+            isNegative(result);
+            accumulator = result;
+        }
     }else if(opcode == SBC_INDIRECTY_F1){
-        // max 5 or 6 cycles
-        dataAddress = FetchIndirectY(pc);
-        CheckPageCrossing(pc);
-        pc++;
+        IndirectYReadIns();
+        if(cycleCounter == cycleCounterMax){
+            unsigned char result = accumulator;
+            result -= dataBus;
+            if((statusFlag & CPUFLAGS::CARRY) != CPUFLAGS::CARRY){
+                result -= 1;
+            }
+            if(((result ^ accumulator) & (result ^ (~dataBus)) & 0x80) != 0){
+                SetFlag(CPUFLAGS::OVERFLOW);
+                // printf("overflow set\n");
+            }else{
+                ClearFlag(CPUFLAGS::OVERFLOW);
+                // printf("overflow clear\n");
+            }
+            if((result & 0x80) != 0x80){
+                SetFlag(CPUFLAGS::CARRY);
+                // printf("carry set\n");
+            }else{
+                ClearFlag(CPUFLAGS::CARRY);
+                // printf("carry clear\n");
+            }
+            isZero(result);
+            isNegative(result);
+            accumulator = result;
+        }
     }
 
     if(opcode != SBC_ZEROPAGE_E5 && opcode != SBC_IMMEDIATE_E9 && opcode != SBC_ABSOLUTEY_F9 &&  opcode != SBC_ABSOLUTEX_FD && opcode != SBC_ABSOLUTE_ED && opcode != SBC_ZEROPAGEX_F5){
@@ -2666,8 +2352,6 @@ void CPU6502::Ins_SEI() {
     // DO IRQ 
 }
 
-// CYCLE ACCURACY:
-// 85, 8D, 91, 95, 9D
 void CPU6502::Ins_STA(){
     if(opcode == STA_ZEROPAGE_85){
         // max 3 cycles
@@ -2685,44 +2369,9 @@ void CPU6502::Ins_STA(){
         AbsoluteYWriteIns();
     }else if(opcode == STA_INDIRECTX_81){
         // max 6 cycles
-        dataAddress = FetchIndirectX(pc);
-        pc++;
+        IndirectXWriteIns();
     }else if(opcode == STA_INDIRECTY_91){
-        if(cycleCounter == 1){
-            // cycle 2
-            dataBus = emulator.Fetch(pc); // 00bb
-            pc++;
-        }else if(cycleCounter == 2){
-            // cycle 3
-            dataAddress = emulator.Fetch(dataBus); // xx
-            dataBus++; // oobb + 1
-        }else if(cycleCounter == 3){
-            // cycle 4
-            dataAddress = (dataAddress | (emulator.Fetch(dataBus) << 8)); // yyxx
-            dataAddress += registerY; // yyxx + Y
-        }else if(cycleCounter == 4){
-            // cycle 5
-            emulator.Fetch(dataAddress);
-            // add 1 cycle by default because
-            // the processor cannot undo a write to an invalid
-            // address, it always reads from the address first.
-            if(((dataAddress-registerY) & 0xFF00) != (dataAddress & 0xFF00) ){
-                // dataAddress += 0x100;
-            }
-        }else if(cycleCounter == 5){
-            // cycle 6
-            StoreInCPUMemory(accumulator,dataAddress);
-            cycleCounter++;
-        }
-    }
-
-    if(opcode != STA_ABSOLUTEX_9D && opcode != STA_ZEROPAGE_85 && opcode != STA_ABSOLUTE_8D && opcode != STA_INDIRECTY_91 && opcode != STA_ZEROPAGEX_95 && opcode != STA_ABSOLUTEY_99){
-        printf("sta doesn't work: 0x%x\n",opcode);
-        while (true)
-        {
-            /* code */
-        }
-
+        IndirectYWriteIns();
     }
 }
 

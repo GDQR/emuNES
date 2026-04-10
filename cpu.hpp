@@ -115,20 +115,15 @@ struct CPU6502
     void AbsoluteYReadIns();
     void AbsoluteYReadModWriteIns();
     void AbsoluteYWriteIns();
+    void IndirectXReadIns();
+    void IndirectXReadModWriteIns();
+    void IndirectXWriteIns();
+    void IndirectYReadIns();
+    void IndirectYReadModWriteIns();
+    void IndirectYWriteIns();
     // 1 Cycles
     unsigned short FetchZeroPageX(unsigned short address);
     unsigned short FetchZeroPageY(unsigned short address);
-    unsigned short FetchRelative(unsigned short address);
-    // 2 Cycles
-    unsigned short FetchAbsoluteX(unsigned short address);
-    // 2 Cycles
-    unsigned short FetchAbsoluteY(unsigned short address);
-    // 4 Cycles
-    unsigned short FetchIndirect(unsigned short address);
-    // Indexed Indirect. 3 Cycles
-    unsigned short FetchIndirectX(unsigned short address);
-    // Indirect Indexed. 3 Cycles
-    unsigned short FetchIndirectY(unsigned short address);
     void StoreInCPUMemory(unsigned char value, unsigned short address);
     void Ins_ADC();
     void Ins_AND();
