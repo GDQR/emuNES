@@ -590,26 +590,32 @@ unsigned char PPU::FetchPPU(unsigned short Address)
     }else if(Address < 0x3F00){
         // 0x2000 to 0x2FFF VRAM
         // 0x3000 to 0x3EFF usually a mirror
-        Address = MirroringAddress(Address);
+        Address = GetPPUData(Address);
         Address &= 0x7FF;
         return VRAM[Address];
     }else if (Address >= 0x3F00){
         // read from palette RAM.
         // Palette RAM only returns bits 0-5, so bits 6 and 7 are PPU open bus.
-        Address = MirroringAddress(Address);
+        Address = GetPPUData(Address);
         return (unsigned char)((paletteRAM[Address & 0x1F] & 0x3F) | (ppuBus & 0xC0));
     }
     return 0;
 }
 
-unsigned short PPU::MirroringAddress(unsigned short Address)
+unsigned short PPU::GetPPUData(unsigned short Address)
 {
+    // $0000-$0FFF Pattern Table 0
+    // $1000-$1FFF Pattern Table 1
+    // $0000-$1FFF is normally mapped by the cartridge to a CHR-ROM or CHR-RAM,
+    // often with a bank switching mechanism.
     // No mirror
     if(Address < 0x2000){
         return Address;
     }
 
-    // if the vram address is pointing to the color palettes:
+    // $3F00-$3F1F Palette RAM indexes
+    // $3F20-$3FFF Mirrors of $3F00-$3F1F
+    // VRAM address is pointing to the color palettes:
     if (Address >= 0x3F00)
     {
         Address &= 0x3F1F;
@@ -620,18 +626,18 @@ unsigned short PPU::MirroringAddress(unsigned short Address)
         return Address;
     }
 
-    Address &= 0x2FFF; // $3000 through $3F00 is always mirrored down.
+    Address &= 0x2FFF; // $3000-$3F00 is always mirrored down.
     switch(emulator.game->mapper){
         case 0:
             if(emulator.game->mirroring == 0){
-                // Vertical Mirroring
+                // Vertical Mirroring or Horizontal Arrangement
                 // |0|1|
                 // |2|3|
                 // nametable 0 = nametable 2
                 // nametable 1 = nametable 3
                 Address &= 0x37FF; // mask away $0800
             }else{
-                // Horizontal Mirroring
+                // Horizontal Mirroring or Vertical Arrangement
                 // |0|1|
                 // |2|3|
                 // nametable 0 = nametable 1
@@ -741,12 +747,10 @@ void PPU::TileFetch(){
         //       = $A7
         // If this is on the right tile
 
-        // Use Coarse X from RegisterV (bits 4-0)
         if ((registerV & 3) >= 2){
             attributeColor = (attributeColor >> 2);
         }
         // If this is on the bottom tile
-        // Use Coarse Y from RegisterV (bits 9-5)
         if ((((registerV & 0x3E0) >> 5) & 3) >= 2)
         {
             attributeColor = (attributeColor >> 4);
@@ -964,7 +968,9 @@ void PPU::StorePPUData(unsigned char value, unsigned short Address){
     // writing to the PPU's VRAM.
     // first, check if the address has any mirroring going on:
     // Address = PPUAddressWithMirroring(Address);
-    Address = MirroringAddress(Address);
+
+    Address = GetPPUData(Address);
+
     if (Address < 0x2000) // if this is pointing to CHR RAM
     {
         emulator.game->CHRRAM[Address] = value;

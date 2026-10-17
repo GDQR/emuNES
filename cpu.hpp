@@ -29,13 +29,13 @@ enum SECTIONS6502{
 
 enum CPUFLAGS
 {
-    CARRY = 1 << 0,
-    ZERO = 1 << 1,
+    CARRY             = 1 << 0,
+    ZERO              = 1 << 1,
     INTERRUPT_DISABLE = 1 << 2,
-    DECIMAL_MODE = 1 << 3,
-    BREAK = 1 << 4,
-    OVERFLOW = 1 << 6,
-    NEGATIVE = 1 << 7
+    DECIMAL_MODE      = 1 << 3,
+    B_FLAG             = 1 << 4,
+    OVERFLOW          = 1 << 6,
+    NEGATIVE          = 1 << 7
 };
 
 enum PPU_FLAGS
@@ -263,6 +263,7 @@ struct PPU
     // https://www.nesdev.org/wiki/PPU_registers#Internal_registers
 
     unsigned short registerV; // Current VRAM Address/read-write-address
+    unsigned char PPU_readBuffer;
 
     // During rendering, specifies the starting coarse-x scroll for the next scanline and the starting y scroll for the screen. 
     // Outside of rendering, holds the scroll or VRAM address before transferring it to v.
@@ -309,7 +310,7 @@ struct PPU
     void ShiftRegisterMoveBit();
     void ShiftRegisterSprite();
     unsigned char FetchPPU(unsigned short Address);
-    unsigned short MirroringAddress(unsigned short Address);
+    unsigned short GetPPUData(unsigned short Address);
     void TileFetch();
     void SpriteFetch();
     void GetSpriteAddress();
@@ -333,6 +334,7 @@ struct RGBstruct
 class Controller{
 public:
     bool controllerStrobe = false;
+    bool controllerStopRead = false;
     unsigned char controllerData1 = 0;
     unsigned char controllerData2 = 0;
     unsigned char controllerShiftRegister1 = 0;
@@ -387,3 +389,12 @@ extern RenderTexture2D target;
 extern int gameScreenWidth;
 extern int gameScreenHeight;
 extern float scale;
+
+extern int nes_Button_A;
+extern int nes_Button_B;
+extern int nes_Button_Select;
+extern int nes_Button_Start;
+extern int nes_Button_Up;
+extern int nes_Button_Down;
+extern int nes_Button_Left;
+extern int nes_Button_Right;

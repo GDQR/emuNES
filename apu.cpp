@@ -141,6 +141,41 @@ void APU::Initialize(){
 void APU::EmulateCycle(){
   // Every 2 CPU cycles, 1 APU
   if(CPUclock == 1){
+    if(controller.controllerStrobe == true){
+        if(!controller.controllerStopRead ){
+            controller.controllerStopRead = true;
+        
+            controller.controllerData1 = 0;
+            if(IsKeyDown(nes_Button_Right) == true){
+                controller.controllerData1 = 1;
+            }
+            if(IsKeyDown(nes_Button_Left) == true){
+                controller.controllerData1 |= 2;
+            }
+            if(IsKeyDown(nes_Button_Down) == true){
+                controller.controllerData1 |= 4;
+            }
+            if(IsKeyDown(nes_Button_Up) == true){
+                controller.controllerData1 |= 8;
+            }
+            if(IsKeyDown(nes_Button_Start) == true){
+                controller.controllerData1 |= 16;
+            }
+            if(IsKeyDown(nes_Button_Select) == true){
+                controller.controllerData1 |= 32;
+            }
+            if(IsKeyDown(nes_Button_B) == true){
+                controller.controllerData1 |= 64;
+            }
+            if(IsKeyDown(nes_Button_A) == true){
+                controller.controllerData1 |= 128;
+            }
+            controller.controllerShiftRegister1 = controller.controllerData1;
+        }
+    }else{
+        controller.controllerStopRead = false;
+    }
+    
     // timerPulse1--;
     // unsigned char timer = pulse1[3] & 0x7;
     // timer--;
