@@ -309,6 +309,7 @@ struct PPU
     void EmulateCycle();
     void ShiftRegisterMoveBit();
     void ShiftRegisterSprite();
+    void IncrementVramAddress();
     unsigned char FetchPPU(unsigned short Address);
     unsigned short GetPPUData(unsigned short Address);
     void TileFetch();

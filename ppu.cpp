@@ -69,6 +69,8 @@ void PPU::Initialize(){
 void PPU::Power(){
     renderState = PPURENDER_STATE::NORMAL_RENDER;
 
+    PPU_readBuffer = 0;
+
     // Screen Settings
     scanlineDot = 0; 
     scanlineRow = 0;
@@ -82,6 +84,9 @@ void PPU::Power(){
     ppuAddress = 0;
 }
 void PPU::Reset(){
+
+    PPU_readBuffer = 0;
+
     // Screen Settings
     scanlineDot = 0;
     scanlineRow = 0;
@@ -212,6 +217,15 @@ void PPU::ShiftRegisterSprite(){
     }
 }
 
+void PPU::IncrementVramAddress(){
+    if((ppuctrl & PPU_FLAGS::VRAM_ADDRESS_FLAG) == PPU_FLAGS::VRAM_ADDRESS_FLAG){
+        // if bit is one (1)
+        registerV += 32;
+    }else{
+        registerV++;
+        // if bit is zero (0)
+    }
+}
 char debugPalattechange = 0;
 void PPU::EmulateCycle(){
     // printf("ppu cycleCounter: 0x%X\n",cycleCounter);
@@ -283,7 +297,7 @@ void PPU::EmulateCycle(){
                 // which are then shifted.
                 // char pixel = (char) ((shiftRegisterLowBytes >> (15 - registerX)) & 1); 
                 // pixel = (char) (pixel | ((shiftRegisterHighBytes >> (15 - registerX)) & 1));
-                    
+
                 char col0 = (char)(((shiftRegisterLowBytes >> (15 - registerX))) & 1); // take the bit from the shift register for the pattern low bit plane
                 char col1 = (char)(((shiftRegisterHighBytes >> (15 - registerX))) & 1); // take the bit from the shift register for the pattern high bit plane
                 char pixelColor = (char)((col1 << 1) | col0);
@@ -1155,13 +1169,7 @@ void PPU::StoreInPPU(unsigned char value, unsigned short address) {
         // printf("2007 registerV: 0x%X\n",registerV);
         // printf("ppudata: 0x%X\n",ppudata);
         // printf("registerY: 0x%X\n",emulator.cpu.registerY);
-        if((ppuctrl & PPU_FLAGS::VRAM_ADDRESS_FLAG) == PPU_FLAGS::VRAM_ADDRESS_FLAG){
-            // if bit is one (1)
-            registerV += 32;
-        }else{
-            registerV++;
-            // if bit is zero (0)
-        }
+        IncrementVramAddress();
     }else if(address == SECTIONS6502::OAMDMA){ // 0x4014
         emulator.cpu.DMAPage = value;
         emulator.cpu.DMAAddress = 0; // always start with zero

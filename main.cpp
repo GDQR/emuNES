@@ -393,7 +393,6 @@ unsigned char Emulator::Fetch(unsigned short address){
             ppu.PPU_readBuffer = ppu.FetchPPU((unsigned short)(ppu.registerV & 0x3FFF));
             ppu.ppuBus = delayReadBuffer;
 
-            //TODO: below is only in write ppu but not in the read ppu
             //Outside of rendering, reads from or writes to $2007 will add either 1 or 32 to v depending on the VRAM increment bit set via $2000
 
             return delayReadBuffer;
