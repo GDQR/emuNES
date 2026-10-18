@@ -305,7 +305,11 @@ void PPU::EmulateCycle(){
                 char pal0 = (char)(((shiftRegisterAttribute1) >> (7 - registerX)) & 1); // take the bit from the shift register for the attribute low bit plane
                 char pal1 = (char)(((shiftRegisterAttribute2) >> (7 - registerX)) & 1); // take the bit from the shift register for the attribute high bit plane
                 char Palette = (char)((pal1 << 1) | pal0);
-
+                
+                // if color is 0: always use color 0 from pallate 0   
+                if (pixelColor == 0 && Palette != 0) {
+                    Palette = 0;
+                }
                 char backgroundPixelData = (Palette<<2) | pixelColor;
                 
                 // 4bit0
