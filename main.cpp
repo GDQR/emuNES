@@ -427,7 +427,13 @@ unsigned char Emulator::Fetch(unsigned short address){
             return delayReadBuffer;
         }
     }else if(address >= 0x4000 && address <= 0x401F){
-        if (address == 0x4016){
+        if(address == 0x4014){
+
+            printf("4014\n");
+            while (true)
+            {
+            }
+        }else if (address == 0x4016){
             // Unconnected data lines and open bus
             unsigned char inputData = ((controller.controllerShiftRegister1 & 0x80)>>7) | (cpu.dataBus & 0xE0);
             controller.shiftCounter1 = 2;
@@ -436,12 +442,6 @@ unsigned char Emulator::Fetch(unsigned short address){
             cpu.cycleCounter++;
             return inputData;
         }else if(address == 0x4017){
-        }else if(address == 0x4014){
-            
-            printf("4014\n");
-            while (true)
-            {
-            }
         }else{
             // printf("APU, DMC\n");
             // printf("not more, PC: 0x%X\n",emulator.cpu.pc);
@@ -450,6 +450,10 @@ unsigned char Emulator::Fetch(unsigned short address){
             // }
         }
         cpu.cycleCounter++;
+    }else {
+        data = MapperFetch(address, game->mapper);
+        cpu.cycleCounter++;
+        return data;
     }
     // pc++;
     // cycleCounter++;
