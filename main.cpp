@@ -191,7 +191,35 @@ enum Opcode
     LSR_ABSOLUTEX_5E   = 0X5E,
 
     // NO OPERATION
-    NOP_EA = 0XEA,
+    NOP_04 = 0X04,
+    NOP_ABSOLUTE_0C = 0X0C,
+    NOP_ZEROPAGEX_14 = 0X14,
+    NOP_1A = 0X1A,
+    NOP_ABSOLUTEX_1C = 0X1C,
+    NOP_ZEROPAGEX_34 = 0X34,
+    NOP_3A = 0X3A,
+    NOP_ABSOLUTEX_3C = 0X3C,
+    NOP_44 = 0X44,
+    NOP_ZEROPAGEX_54 = 0X54,
+    NOP_5A = 0X5A,
+    NOP_ABSOLUTEX_5C = 0X5C,
+    NOP_64 = 0X64,
+    NOP_74 = 0X74,
+    NOP_7A = 0X7A,
+    NOP_ZEROPAGEX_74 = 0X74,
+    NOP_ABSOLUTEX_7C = 0X7C,
+    NOP_IMMEDIATE_80 = 0X80,
+    NOP_IMMEDIATE_82 = 0X82,
+    NOP_IMMEDIATE_89 = 0X89,
+    NOP_IMMEDIATE_C2 = 0XC2,
+    NOP_IMMEDIATE_E2 = 0XE2,
+    NOP_DA = 0XDA,
+    NOP_ZEROPAGEX_D4 = 0XD4,
+    NOP_ABSOLUTEX_DC = 0XDC,
+    NOP_EA = 0XEA, // only one official
+    NOP_FA = 0XFA,
+    NOP_ZEROPAGEX_F4 = 0XF4,
+    NOP_ABSOLUTEX_FC = 0XFC,
 
     // LOGICAL INCLUSIVE OR
     ORA_IMMEDIATE_09 = 0X09,
@@ -361,6 +389,7 @@ unsigned char Emulator::Fetch(unsigned short address){
         return cpu.RAM[address & 0x7ff];
     }else if (address >= SECTIONS6502::PPU_SECTION && address < SECTIONS6502::APUREGISTERS){
         cpu.cycleCounter++;
+        address = (address & 0x2007);
         if(address == SECTIONS6502::PPUCTRL){ // 0x2000 Write only
             return ppu.ppuBus;
         }else if(address == SECTIONS6502::PPUMASK){ // 0x2001 Write only
@@ -393,11 +422,10 @@ unsigned char Emulator::Fetch(unsigned short address){
             ppu.PPU_readBuffer = ppu.FetchPPU((unsigned short)(ppu.registerV & 0x3FFF));
             ppu.ppuBus = delayReadBuffer;
 
-            //Outside of rendering, reads from or writes to $2007 will add either 1 or 32 to v depending on the VRAM increment bit set via $2000
+            ppu.IncrementVramAddress();
 
             return delayReadBuffer;
         }
-        cpu.cycleCounter++;
     }else if(address >= 0x4000 && address <= 0x401F){
         if (address == 0x4016){
             // Unconnected data lines and open bus
@@ -1941,6 +1969,66 @@ void CPU6502::Ins_NOP() {
     cycleCounter++;
 }
 
+void CPU6502::Ins_NOP_IMMEDIATE(){
+    dataBus = emulator.Fetch(pc);
+    pc++;
+}
+
+void CPU6502::Ins_NOP_ABSOLUTE(){
+    if(cycleCounter == 1){
+        dataBus = emulator.Fetch(pc);
+        pc++;
+    }else if(cycleCounter == 2){
+        dataAddress = dataBus;
+        dataBus = emulator.Fetch(pc);
+        dataAddress |= (dataBus<<8);
+        pc++;
+    }else if(cycleCounter == 3){
+        dataBus = emulator.Fetch(dataAddress);
+    }
+}
+
+void CPU6502::Ins_NOP_ABSOLUTEX(){
+    if(cycleCounter == 1){
+        dataBus = emulator.Fetch(pc);
+        pc++;
+    }else if(cycleCounter == 2){
+        dataAddress = (emulator.Fetch(pc) << 8) | dataBus;
+        dataAddress += registerX;
+        pc++;
+    }else if(cycleCounter == 3){
+        emulator.Fetch(dataAddress);
+        if(((dataAddress - registerX) & 0xFF00) != (dataAddress & 0xFF00)){
+            cycleCounterMax++; // page crossing add 1 cycle
+        }
+    }else if(cycleCounter == 4){
+        cycleCounter++;
+    }
+}
+
+void CPU6502::Ins_NOP_ZEROPAGE(){
+  // Max 3 cycles
+    if(cycleCounter == 1){
+        dataAddress = emulator.Fetch(pc); // dummy read
+        pc++;
+    }else if(cycleCounter == 2){
+        emulator.Fetch(dataAddress); // dummy read
+    }
+}
+
+
+void CPU6502::Ins_NOP_ZEROPAGEX(){
+    if(cycleCounter == 1){
+        dataAddress = emulator.Fetch(pc);
+        pc++;
+    }else if(cycleCounter == 2){
+        dataBus = emulator.Fetch(dataAddress); // Dummy read
+        dataAddress += registerX;
+    }else if(cycleCounter == 3){
+        emulator.Fetch(dataAddress);
+    }
+}
+
 void CPU6502::Ins_ORA(){
     if(opcode == ORA_INDIRECTX_01){
         // cycle 2
@@ -2366,6 +2454,9 @@ void CPU6502::EmulateCycle()
             case ORA_INDIRECTX_01: // 0x01
                 Ins_ORA();
                 break;
+            case NOP_04:
+                Ins_NOP_ZEROPAGE();
+                break;
             case ORA_ZEROPAGE_05: // 0x05
                 Ins_ORA();
                 break;
@@ -2380,6 +2471,9 @@ void CPU6502::EmulateCycle()
                 break;
             case ASL_ACCUMULATOR_0A:
                 Ins_ASL();
+                break;
+            case NOP_ABSOLUTE_0C:
+                Ins_NOP_ABSOLUTE();
                 break;
             case ORA_ABSOLUTE_0D:
                 Ins_ORA();
@@ -2401,6 +2495,9 @@ void CPU6502::EmulateCycle()
             case ORA_INDIRECTY_11:
                 Ins_ORA();
                 break;
+            case NOP_ZEROPAGEX_14:
+                Ins_NOP_ZEROPAGEX();
+                break;
             case ORA_ZEROPAGEX_15:
                 Ins_ORA();
                 break;
@@ -2412,6 +2509,12 @@ void CPU6502::EmulateCycle()
                 break;
             case ORA_ABSOLUTEY_19:
                 Ins_ORA();
+                break;
+            case NOP_1A:
+                Ins_NOP();
+                break;
+            case NOP_ABSOLUTEX_1C:
+                Ins_NOP_ABSOLUTEX();
                 break;
             case ORA_ABSOLUTEX_1D:
                 Ins_ORA();
@@ -2474,6 +2577,9 @@ void CPU6502::EmulateCycle()
             case AND_INDIRECTY_31:
                 Ins_AND();
                 break;
+            case NOP_ZEROPAGEX_34:
+                Ins_NOP_ZEROPAGEX();
+                break;
             case AND_ZEROPAGEX_35:
                 Ins_AND();
                 break;
@@ -2485,6 +2591,12 @@ void CPU6502::EmulateCycle()
                 break;
             case AND_ABSOLUTEY_39:
                 Ins_AND();
+                break;
+            case NOP_3A:
+                Ins_NOP();
+                break;
+            case NOP_ABSOLUTEX_3C:
+                Ins_NOP_ABSOLUTEX();
                 break;
             case AND_ABSOLUTEX_3D:
                 Ins_AND();
@@ -2505,6 +2617,9 @@ void CPU6502::EmulateCycle()
                 break;
             case EOR_INDIRECTX_41:
                 Ins_EOR();
+                break;
+            case NOP_44:
+                Ins_NOP_ZEROPAGE();
                 break;
             case EOR_ZEROPAGE_45:
                 Ins_EOR();
@@ -2544,6 +2659,9 @@ void CPU6502::EmulateCycle()
             case EOR_INDIRECTY_51:
                 Ins_EOR();
                 break;
+            case NOP_ZEROPAGEX_54:
+                Ins_NOP_ZEROPAGEX();
+                break;
             case EOR_ZEROPAGEX_55:
                 Ins_EOR();
                 break;
@@ -2555,6 +2673,12 @@ void CPU6502::EmulateCycle()
                 break;
             case EOR_ABSOLUTEY_59:
                 Ins_EOR();
+                break;
+            case NOP_5A:
+                Ins_NOP();
+                break;
+            case NOP_ABSOLUTEX_5C:
+                Ins_NOP_ABSOLUTEX();
                 break;
             case EOR_ABSOLUTEX_5D:
                 Ins_EOR();
@@ -2575,6 +2699,9 @@ void CPU6502::EmulateCycle()
                 break;
             case ADC_INDIRECTX_61:
                 Ins_ADC();
+                break;
+            case NOP_64:
+                Ins_NOP_ZEROPAGE();
                 break;
             case ADC_ZEROPAGE_65:
                 Ins_ADC();
@@ -2614,6 +2741,9 @@ void CPU6502::EmulateCycle()
             case ADC_INDIRECTY_71:
                 Ins_ADC();
                 break;
+            case NOP_ZEROPAGEX_74:
+                Ins_NOP_ZEROPAGEX();
+                break;
             case ADC_ZEROPAGEX_75:
                 Ins_ADC();
                 break;
@@ -2626,8 +2756,14 @@ void CPU6502::EmulateCycle()
             case ADC_ABSOLUTEY_79:
                 Ins_ADC();
                 break;
+            case NOP_7A:
+                Ins_NOP();
+                break;
             case ADC_ABSOLUTEX_7D:
                 Ins_ADC();
+                break;
+            case NOP_ABSOLUTEX_7C:
+                Ins_NOP_ABSOLUTEX();
                 break;
             case ROR_ABSOLUTEX_7E:
                 Ins_ROR();
@@ -2640,8 +2776,14 @@ void CPU6502::EmulateCycle()
         case 0x80:
             switch (opcode)
             {
+            case NOP_IMMEDIATE_80:
+                Ins_NOP_IMMEDIATE();
+                break;
             case STA_INDIRECTX_81:
                 Ins_STA();
+                break;
+            case NOP_IMMEDIATE_82:
+                Ins_NOP_IMMEDIATE();
                 break;
             case STY_ZEROPAGE_84:
                 Ins_STY();
@@ -2655,8 +2797,9 @@ void CPU6502::EmulateCycle()
             case DEY_88:
                 Ins_DEY();
                 break;
-            // case NOP: // unnoficial
-            //     break;
+            case NOP_IMMEDIATE_89:
+                Ins_NOP_IMMEDIATE();
+                break;
             case TXA_8A:
                 Ins_TXA();
                 break;
@@ -2750,7 +2893,6 @@ void CPU6502::EmulateCycle()
                 break;
             default:
                 printf("Unknown opcode [0xA0]: 0x%X\n", opcode);
-                exit(1);
                 break;
             }
             break;
@@ -2804,6 +2946,9 @@ void CPU6502::EmulateCycle()
             case CMP_INDIRECTX_C1:
                 Ins_CMP();
                 break;
+            case NOP_IMMEDIATE_C2:
+                Ins_NOP_IMMEDIATE();
+                break;
             case CPY_ZEROPAGE_C4:
                 Ins_CPY();
                 break;
@@ -2845,6 +2990,9 @@ void CPU6502::EmulateCycle()
             case CMP_INDIRECTY_D1:
                 Ins_CMP();
                 break;
+            case NOP_ZEROPAGEX_D4:
+                Ins_NOP_ZEROPAGEX();
+                break;
             case CMP_ZEROPAGEX_D5:
                 Ins_CMP();
                 break;
@@ -2856,6 +3004,12 @@ void CPU6502::EmulateCycle()
                 break;
             case CMP_ABSOLUTEY_D9:
                 Ins_CMP();
+                break;
+            case NOP_DA:
+                Ins_NOP();
+                break;
+            case NOP_ABSOLUTEX_DC:
+                Ins_NOP_ABSOLUTEX();
                 break;
             case CMP_ABSOLUTEX_DD:
                 Ins_CMP();
@@ -2876,6 +3030,9 @@ void CPU6502::EmulateCycle()
                 break;
             case SBC_INDIRECTX_E1:
                 Ins_SBC();
+                break;
+            case NOP_IMMEDIATE_E2:
+                Ins_NOP_IMMEDIATE();
                 break;
             case CPX_ZEROPAGE_E4:
                 Ins_CPX();
@@ -2918,6 +3075,9 @@ void CPU6502::EmulateCycle()
             case SBC_INDIRECTY_F1:
                 Ins_SBC();
                 break;
+            case NOP_ZEROPAGEX_F4:
+                Ins_NOP_ZEROPAGEX();
+                break;
             case SBC_ZEROPAGEX_F5:
                 Ins_SBC();
                 break;
@@ -2930,6 +3090,12 @@ void CPU6502::EmulateCycle()
             case SBC_ABSOLUTEY_F9:
                 Ins_SBC();
                 break;
+            case NOP_FA:
+                Ins_NOP();
+                break;
+            case NOP_ABSOLUTEX_FC:
+                Ins_NOP_ABSOLUTEX();
+                break;
             case SBC_ABSOLUTEX_FD:
                 Ins_SBC();
                 break;
@@ -2938,13 +3104,11 @@ void CPU6502::EmulateCycle()
                 break;
             default:
                 printf("Unknown opcode [0xF0]: 0x%X\n", opcode);
-                exit(1);
                 break;
             }
             break;
         default:
             printf("Unknown opcode 0x%X\n", opcode);
-            exit(1);
             break;
         }
     }
