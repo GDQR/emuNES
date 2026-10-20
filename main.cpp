@@ -717,7 +717,7 @@ void CPU6502::ZeroPageXReadIns() {
         pc++;
     }else if(cycleCounter == 2){
         dataBus = emulator.Fetch(dataAddress); // Dummy read
-        dataAddress += registerX;
+        dataAddress = (unsigned char) (dataAddress + registerX);
     }else if(cycleCounter == 3){
         dataBus = emulator.Fetch(dataAddress);
     }
@@ -729,7 +729,7 @@ void CPU6502::ZeroPageXReadModWriteIns() {
         pc++;
     }else if(cycleCounter == 2){
         dataBus = emulator.Fetch(dataAddress); // Dummy read
-        dataAddress += registerX;
+        dataAddress = (unsigned char) (dataAddress + registerX);
     }else if(cycleCounter == 3){
         dataBus = emulator.Fetch(dataAddress);
     }else if(cycleCounter == 4){
@@ -809,7 +809,7 @@ void CPU6502::ZeroPageXWriteIns() {
         pc++;
     }else if(cycleCounter == 2){
         dataBus = emulator.Fetch(dataAddress); // Dummy read
-        dataAddress += registerX;
+        dataAddress = (unsigned char) (dataAddress + registerX);
     }else if(cycleCounter == 3){
         if(opcode == STA_ZEROPAGEX_95){
             StoreInCPUMemory(accumulator,dataAddress);
@@ -826,7 +826,7 @@ void CPU6502::ZeroPageYReadIns() {
         pc++;
     }else if(cycleCounter == 2){
         dataBus = emulator.Fetch(dataAddress); // Dummy read
-        dataAddress += registerY;
+        dataAddress = (unsigned char) (dataAddress + registerY);
     }else if(cycleCounter == 3){
         dataBus = emulator.Fetch(dataAddress);
     }
@@ -840,7 +840,7 @@ void CPU6502::ZeroPageYWriteIns() {
         pc++;
     }else if(cycleCounter == 2){
         dataBus = emulator.Fetch(dataAddress); // Dummy read
-        dataAddress += registerY;
+        dataAddress = (unsigned char) (dataAddress + registerY);
     }else if(cycleCounter == 3){
         if(opcode == STX_ZEROPAGEY_96){
             StoreInCPUMemory(registerX,dataAddress);
@@ -856,7 +856,9 @@ void CPU6502::AbsoluteXReadIns() {
         dataBus = emulator.Fetch(pc);
         pc++;
     }else if(cycleCounter == 2){
-        dataAddress = (emulator.Fetch(pc) << 8) | dataBus;
+        dataAddress = dataBus;
+        dataBus = emulator.Fetch(pc);
+        dataAddress |= dataBus<<8;
         dataAddress += registerX;
         pc++;
     }else if(cycleCounter == 3){
@@ -865,7 +867,7 @@ void CPU6502::AbsoluteXReadIns() {
             cycleCounterMax++; // page crossing add 1 cycle
         }
     }else if(cycleCounter == 4){
-        cycleCounter++;
+        dataBus = emulator.Fetch(dataAddress);
     }
 }
 
@@ -1065,12 +1067,15 @@ void CPU6502::IndirectXReadIns() {
         dataAddress = emulator.Fetch(pc); // 00bb
         pc++;
     }else if(cycleCounter == 2){
+        // https://www.nesdev.org/6502_cpu.txt: Indexed indirect addressing
+        // Note: The effective address is always fetched from zero page,
+        // i.e. the zero page boundary crossing is not handled.
         dataBus = emulator.Fetch(dataAddress); // Dummy read
-        dataAddress += registerX; // 00bb + X
+        dataAddress = (unsigned char) (dataAddress + registerX); // 00bb + X
     }else if(cycleCounter == 3){
         dataBus = emulator.Fetch(dataAddress);
     }else if(cycleCounter == 4){
-        dataAddress = (emulator.Fetch(dataAddress+1)<<8) | dataBus;
+        dataAddress = (emulator.Fetch((unsigned char) (dataAddress+1))<<8) | dataBus;
     }else if(cycleCounter == 5){
         dataBus = emulator.Fetch(dataAddress);
     }
@@ -1084,12 +1089,15 @@ void CPU6502::IndirectXWriteIns() {
         dataAddress = emulator.Fetch(pc); // 00bb
         pc++;
     }else if(cycleCounter == 2){
+        // https://www.nesdev.org/6502_cpu.txt: Indexed indirect addressing
+        // Note: The effective address is always fetched from zero page,
+        // i.e. the zero page boundary crossing is not handled.
         dataBus = emulator.Fetch(dataAddress); // Dummy read
-        dataAddress += registerX; // 00bb + X
+        dataAddress = (unsigned char) (dataAddress + registerX); // 00bb + X
     }else if(cycleCounter == 3){
         dataBus = emulator.Fetch(dataAddress);
     }else if(cycleCounter == 4){
-        dataAddress = (emulator.Fetch(dataAddress+1)<<8) | dataBus;
+        dataAddress = (emulator.Fetch((unsigned char) (dataAddress + 1))<<8) | dataBus;
     }else if(cycleCounter == 5){
         if(opcode == STA_INDIRECTX_81){
             StoreInCPUMemory(accumulator, dataAddress);
@@ -1105,7 +1113,7 @@ void CPU6502::IndirectYReadIns() {
     }else if(cycleCounter == 2){
         dataBus = emulator.Fetch(dataAddress); // xx
     }else if(cycleCounter == 3){
-        dataAddress = (emulator.Fetch(dataAddress+1)<<8) | dataBus; // yyxx
+        // https://www.nesdev.org/6502_cpu.txt: Indirect indexed addressing
         dataAddress += registerY; // yyxx + Y
     }else if(cycleCounter == 4){
         dataBus = emulator.Fetch(dataAddress);
@@ -1113,12 +1121,13 @@ void CPU6502::IndirectYReadIns() {
             cycleCounterMax++; // page crossing add 1 cycle
         }
     }else if(cycleCounter == 5){
-        cycleCounter++;
+        dataBus = emulator.Fetch(dataAddress);
     }
 }
 
 void CPU6502::IndirectYReadModWriteIns() {}
 
+// (STA)
 void CPU6502::IndirectYWriteIns() {
     if(cycleCounter == 1){
         dataAddress = emulator.Fetch(pc); // 00bb
@@ -1126,7 +1135,10 @@ void CPU6502::IndirectYWriteIns() {
     }else if(cycleCounter == 2){
         dataBus = emulator.Fetch(dataAddress); // xx
     }else if(cycleCounter == 3){
-        dataAddress = (emulator.Fetch(dataAddress+1)<<8) | dataBus; // yyxx
+        // https://www.nesdev.org/6502_cpu.txt: Indirect indexed addressing
+        // Note: The effective address is always fetched from zero page,
+        // i.e. the zero page boundary crossing is not handled.
+        dataAddress = (emulator.Fetch((unsigned char) (dataAddress+1))<<8) | dataBus; // yyxx
         dataAddress += registerY; // yyxx + Y
     }else if(cycleCounter == 4){
         // add 1 cycle by default because
@@ -1829,8 +1841,14 @@ void CPU6502::Ins_JMP() {
         }else if(cycleCounter == 3){
             dataBus = emulator.Fetch(dataAddress); // Get the PCL
         }else if(cycleCounter == 4){
-            pc = (emulator.Fetch(dataAddress+1)<<8) | dataBus; // Get the PCH;
-            dataAddress = pc;
+            pc = dataBus;
+            // https://www.nesdev.org/6502_cpu.txt: Absolute indirect addressing
+            // Get the PCH
+            // The PCH will always be fetched from the same page
+            // than PCL, i.e. page boundary crossing is not handled.
+            // in other words: 0xZZ00, the "ZZ" from address not change
+            dataBus = (emulator.Fetch( (unsigned short) ((dataAddress & 0xFF00) | (unsigned char)(dataAddress+1)))) ; 
+            pc |= dataBus << 8;
         }
     }
 }
