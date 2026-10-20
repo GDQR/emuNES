@@ -1114,6 +1114,9 @@ void CPU6502::IndirectYReadIns() {
         dataBus = emulator.Fetch(dataAddress); // xx
     }else if(cycleCounter == 3){
         // https://www.nesdev.org/6502_cpu.txt: Indirect indexed addressing
+        // Note: The effective address is always fetched from zero page,
+        // i.e. the zero page boundary crossing is not handled.
+        dataAddress = (emulator.Fetch((unsigned char) (dataAddress+1))<<8) | dataBus; // yyxx
         dataAddress += registerY; // yyxx + Y
     }else if(cycleCounter == 4){
         dataBus = emulator.Fetch(dataAddress);
