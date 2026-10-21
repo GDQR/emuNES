@@ -1591,33 +1591,55 @@ void CPU6502::Ins_BPL() {
 void CPU6502::Ins_BRK() {
     // TODO: 7 cycles
 
-    // hack
     if(nmi == true){
         //NMI
-        StoreInCPUMemory((unsigned char)(pc>>8),(unsigned short)(0x100 + sp));
-        sp--;
-        StoreInCPUMemory((unsigned char)(pc),(unsigned short)(0x100 + sp));
-        sp--;
-        ClearFlag(CPUFLAGS::B_FLAG); // clear only in NMI
-        StoreInCPUMemory(statusFlag,(unsigned short)(0x100 + sp));
-        sp--;
-        pc = (unsigned short)((pc & 0xFF00) | (emulator.Fetch(0xFFFA)));
-        pc = (unsigned short)((pc & 0xFF) | (emulator.Fetch(0xFFFB) << 8));
-        SetFlag(CPUFLAGS::INTERRUPT_DISABLE);
-        nmi = false;
+        if(cycleCounter == 1){
+            dataBus = emulator.Fetch(pc); // dummy read
+        }else if(cycleCounter == 2){
+            StoreInCPUMemory((unsigned char)(pc>>8),(unsigned short)(0x100 + sp));
+            sp--;
+            cycleCounter++;
+        }else if(cycleCounter == 3){
+            StoreInCPUMemory((unsigned char)(pc),(unsigned short)(0x100 + sp));
+            sp--;
+            cycleCounter++;
+        }else if(cycleCounter == 4){
+            ClearFlag(CPUFLAGS::B_FLAG); // clear only in NMI
+            StoreInCPUMemory(statusFlag,(unsigned short)(0x100 + sp));
+            sp--;
+            cycleCounter++;
+        }else if(cycleCounter == 5){
+            pc = (unsigned short)((pc & 0xFF00) | (emulator.Fetch(0xFFFA)));            
+        }else if(cycleCounter == 6){
+            pc = (unsigned short)((pc & 0x00FF) | (emulator.Fetch(0xFFFB) << 8));
+            nmi = false;
+            SetFlag(CPUFLAGS::INTERRUPT_DISABLE);
+        }
     }else if(nmi == false){
-        StoreInCPUMemory((unsigned char)(pc>>8),(unsigned short)(0x100 + sp));
-        sp--;
-        StoreInCPUMemory((unsigned char)(pc),(unsigned short)(0x100 + sp));
-        sp--;
-        SetFlag(CPUFLAGS::B_FLAG);
-        StoreInCPUMemory(statusFlag,(unsigned short)(0x100 + sp));
-        sp--;
-        pc = (unsigned short)((pc & 0xFF00) | (emulator.Fetch(0xFFFE)));
-        pc = (unsigned short)((pc & 0xFF) | (emulator.Fetch(0xFFFF) << 8));
-        SetFlag(CPUFLAGS::INTERRUPT_DISABLE);
+        // BRK
+        if(cycleCounter == 1){
+            dataBus = emulator.Fetch(pc); // dummy read
+            pc++;
+        }else if(cycleCounter == 2){
+            StoreInCPUMemory((unsigned char)(pc>>8),(unsigned short)(0x100 + sp));
+            sp--;
+            cycleCounter++;
+        }else if(cycleCounter == 3){
+            StoreInCPUMemory((unsigned char)(pc),(unsigned short)(0x100 + sp));
+            sp--;
+            cycleCounter++;
+        }else if(cycleCounter == 4){
+            SetFlag(CPUFLAGS::B_FLAG); // Set in BRK
+            StoreInCPUMemory(statusFlag,(unsigned short)(0x100 + sp));
+            sp--;
+            cycleCounter++;
+        }else if(cycleCounter == 5){
+            pc = (unsigned short)((pc & 0xFF00) | (emulator.Fetch(0xFFFE)));
+        }else if(cycleCounter == 6){
+            pc = (unsigned short)((pc & 0x00FF) | (emulator.Fetch(0xFFFF) << 8));
+            SetFlag(CPUFLAGS::INTERRUPT_DISABLE);
+        }
     }
-    cycleCounter = cycleCounterMax;
 }
 
 void CPU6502::Ins_BVC() {

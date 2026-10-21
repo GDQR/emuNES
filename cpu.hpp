@@ -84,8 +84,8 @@ struct CPU6502
     unsigned char registerX;
     unsigned char registerY;
     unsigned char statusFlag;
-    bool beforeNMI = false;
-    bool nmi;
+    bool stopNMIinstruction = false; // This active the nmi operator once
+    bool nmi; // This is active all the cycles of the operation 
     bool irq;
     bool DMAactive = false;
     unsigned char DMAAddress;
