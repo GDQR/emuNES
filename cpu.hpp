@@ -127,6 +127,7 @@ struct CPU6502
     void Ins_ADC();
     void Ins_AND();
     void Ins_ASL();
+    void Ope_ASL();
     void Ins_BCC();
     void Ins_BCS();
     void Ins_BEQ();
@@ -164,6 +165,7 @@ struct CPU6502
     void Ins_NOP_ZEROPAGE();
     void Ins_NOP_ZEROPAGEX();
     void Ins_ORA();
+    void Ope_ORA();
     void Ins_PHA();
     void Ins_PHP();
     void Ins_PLA();
@@ -176,6 +178,7 @@ struct CPU6502
     void Ins_SEC();
     void Ins_SED();
     void Ins_SEI();
+    void Ins_SLO();
     void Ins_STA();
     void Ins_STX();
     void Ins_STY();
@@ -191,8 +194,8 @@ struct CPU6502
 
 // clang-format off
 const char cycles[256] = {
-    7, 6, 0, 0, 2, 3, 5, 0, 3, 2, 2, 0, 4, 4, 6, 0,
-    2, 5, 0, 0, 4, 4, 6, 0, 2, 4, 2, 0, 4, 4, 7, 0,
+    7, 6, 0, 8, 2, 3, 5, 5, 3, 2, 2, 0, 4, 4, 6, 6,
+    2, 5, 0, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,
     6, 6, 0, 0, 3, 3, 5, 0, 4, 2, 2, 0, 4, 4, 6, 0,
     2, 5, 0, 0, 4, 4, 6, 0, 2, 4, 2, 0, 4, 4, 7, 0,
     6, 6, 0, 0, 3, 3, 5, 0, 3, 2, 2, 0, 3, 4, 6, 0,

@@ -318,6 +318,16 @@ enum Opcode
 
     // TRANSFER Y TO ACCUMULATOR
     TYA_98 = 0X98,
+
+    // Unofficial
+    // SLO 
+    SLO_INDIRECTX_03 = 0X03,
+    SLO_ZEROPAGE_07 = 0X07,
+    SLO_ABSOLUTE_0F = 0X0F,
+    SLO_INDIRECTY_13 = 0X13,
+    SLO_ZEROPAGEX_17 = 0X17,
+    SLO_ABSOLUTEY_1B = 0X1B,
+    SLO_ABSOLUTEX_1F = 0X1F,
 };
 // clang-format on
 
@@ -509,16 +519,10 @@ void CPU6502::AbsoluteReadModWriteIns(){
     }else if(cycleCounter == 4){
         StoreInCPUMemory(dataBus, dataAddress); // Dummy write
         if(opcode == ASL_ABSOLUTE_0E){
-            if (dataBus >= 0x80){
-                SetFlag(CPUFLAGS::CARRY);
-            }else{
-                ClearFlag(CPUFLAGS::CARRY);
-            }
-
-            dataBus = dataBus << 1;
-
-            isZero(dataBus);
-            isNegative(dataBus);
+            Ope_ASL();
+        }else if(opcode == SLO_ABSOLUTE_0F){
+            Ope_ASL();
+            Ope_ORA();
         }else if(opcode == LSR_ABSOLUTE_4E){
             if((dataBus & CPUFLAGS::CARRY) == 0x1){
                 SetFlag(CPUFLAGS::CARRY);
@@ -623,16 +627,10 @@ void CPU6502::ZeroPageReadModWriteIns(){
     }else if(cycleCounter == 3){
         StoreInCPUMemory(dataBus, dataAddress); // Dummy write
         if(opcode == ASL_ZEROPAGE_06){
-            if (dataBus >= 0x80){
-                SetFlag(CPUFLAGS::CARRY);
-            }else{
-                ClearFlag(CPUFLAGS::CARRY);
-            }
-
-            dataBus = dataBus << 1;
-
-            isZero(dataBus);
-            isNegative(dataBus);
+            Ope_ASL();
+        }else if(opcode == SLO_ZEROPAGE_07){
+            Ope_ASL();
+            Ope_ORA();
         }else if(opcode == LSR_ZEROPAGE_46){
             if((dataBus & CPUFLAGS::CARRY) == 0x1){
                 SetFlag(CPUFLAGS::CARRY);
@@ -735,17 +733,12 @@ void CPU6502::ZeroPageXReadModWriteIns() {
     }else if(cycleCounter == 4){
         StoreInCPUMemory(dataBus, dataAddress); // Dummy Write
         if(opcode == ASL_ZEROPAGEX_16){
-            if (dataBus >= 0x80){
-                SetFlag(CPUFLAGS::CARRY);
-            }else{
-                ClearFlag(CPUFLAGS::CARRY);
-            }
-
-            dataBus = dataBus << 1;
-
-            isZero(dataBus);
-            isNegative(dataBus);
-        }else if(opcode == DEC_ZEROPAGEX_D6){
+            Ope_ASL();
+        }else if(opcode == SLO_ZEROPAGEX_17){
+            Ope_ASL();
+            Ope_ORA();
+        }
+        else if(opcode == DEC_ZEROPAGEX_D6){
             dataBus--;
             isZero(dataBus);
             isNegative(dataBus);
@@ -894,16 +887,10 @@ void CPU6502::AbsoluteXReadModWriteIns() {
         StoreInCPUMemory(dataBus, dataAddress); // Dummy Write
 
         if(opcode == ASL_ABSOLUTEX_1E){
-            if (dataBus >= 0x80){
-                SetFlag(CPUFLAGS::CARRY);
-            }else{
-                ClearFlag(CPUFLAGS::CARRY);
-            }
-
-            dataBus = dataBus << 1;
-
-            isZero(dataBus);
-            isNegative(dataBus);
+            Ope_ASL();
+        }else if(opcode == SLO_ABSOLUTEX_1F){
+            Ope_ASL();
+            Ope_ORA();
         }else if(opcode == ROL_ABSOLUTEX_3E){
             char carryFuture = 0;
             if (((dataBus) & 0x80) == 0x80){
@@ -1008,6 +995,8 @@ void CPU6502::AbsoluteYReadIns() {
     }
 }
 
+// Unoffical Instructions
+// (ASL, LSR, ROL, ROR, INC, DEC, SLO, SRE, RLA, RRA, ISB, DCP)
 void CPU6502::AbsoluteYReadModWriteIns() {
     if(cycleCounter == 1){
         dataBus = emulator.Fetch(pc);
@@ -1028,8 +1017,10 @@ void CPU6502::AbsoluteYReadModWriteIns() {
         dataBus = emulator.Fetch(dataAddress);
     }else if(cycleCounter == 5){
         StoreInCPUMemory(dataBus, dataAddress); // Dummy Write
-
-        // Do operation
+        if(opcode == SLO_ABSOLUTEY_1B){
+            Ope_ASL();
+            Ope_ORA();
+        }
         cycleCounter++;
     }else if(cycleCounter == 6){
         StoreInCPUMemory(dataBus, dataAddress);
@@ -1081,7 +1072,37 @@ void CPU6502::IndirectXReadIns() {
     }
 }
 
-void CPU6502::IndirectXReadModWriteIns() {}
+// Unoficial Instructions
+// (SLO, SRE, RLA, RRA, ISB, DCP)
+// https://www.masswerk.at/6502/6502_instruction_set.html#SLO
+void CPU6502::IndirectXReadModWriteIns() {
+    if(cycleCounter == 1){
+        dataAddress = emulator.Fetch(pc); // 00bb
+        pc++;
+    }else if(cycleCounter == 2){
+        // https://www.nesdev.org/6502_cpu.txt: Indexed indirect addressing
+        // Note: The effective address is always fetched from zero page,
+        // i.e. the zero page boundary crossing is not handled.
+        dataBus = emulator.Fetch(dataAddress); // Dummy read
+        dataAddress = (unsigned char) (dataAddress + registerX); // 00bb + X
+    }else if(cycleCounter == 3){
+        dataBus = emulator.Fetch(dataAddress);
+    }else if(cycleCounter == 4){
+        dataAddress = (emulator.Fetch((unsigned char) (dataAddress+1))<<8) | dataBus;
+    }else if(cycleCounter == 5){
+        dataBus = emulator.Fetch(dataAddress);
+    }else if(cycleCounter == 6){
+        StoreInCPUMemory(dataBus, dataAddress); // dummy write
+        if(opcode == SLO_INDIRECTX_03){
+            Ope_ASL();
+            Ope_ORA();
+        }
+        cycleCounter++;
+    }else if(cycleCounter == 7){
+        StoreInCPUMemory(dataBus, dataAddress);
+        cycleCounter++;
+    }
+}
 
 // (STA, SAX)
 void CPU6502::IndirectXWriteIns() {
@@ -1127,8 +1148,39 @@ void CPU6502::IndirectYReadIns() {
         dataBus = emulator.Fetch(dataAddress);
     }
 }
-
-void CPU6502::IndirectYReadModWriteIns() {}
+// Unofficial instructions
+// (SLO, SRE, RLA, RRA, ISB, DCP)
+void CPU6502::IndirectYReadModWriteIns() {
+    if(cycleCounter == 1){
+        dataAddress = emulator.Fetch(pc); // 00bb
+        pc++;
+    }else if(cycleCounter == 2){
+        dataBus = emulator.Fetch(dataAddress); // xx
+    }else if(cycleCounter == 3){
+        // https://www.nesdev.org/6502_cpu.txt: Indirect indexed addressing
+        // Note: The effective address is always fetched from zero page,
+        // i.e. the zero page boundary crossing is not handled.
+        dataAddress = (emulator.Fetch((unsigned char) (dataAddress+1))<<8) | dataBus; // yyxx
+        dataAddress += registerY; // yyxx + Y
+    }else if(cycleCounter == 4){
+        dataBus = emulator.Fetch(dataAddress);
+        // if(((dataAddress-registerY) & 0xFF00) != (dataAddress & 0xFF00)){
+        //     cycleCounterMax++; // page crossing add 1 cycle
+        // }
+    }else if(cycleCounter == 5){ 
+        dataBus = emulator.Fetch(dataAddress);
+    }else if(cycleCounter == 6){ 
+        StoreInCPUMemory(dataBus, dataAddress);// dummy write
+        if(opcode == SLO_INDIRECTY_13){
+            Ope_ASL();
+            Ope_ORA();
+        }
+        cycleCounter++;
+    }else if(cycleCounter == 7){ 
+        StoreInCPUMemory(dataBus, dataAddress);
+        cycleCounter++;
+    }
+}
 
 // (STA)
 void CPU6502::IndirectYWriteIns() {
@@ -1281,18 +1333,10 @@ void CPU6502::Ins_ASL()
 {
     if(opcode == ASL_ZEROPAGE_06){
         ZeroPageReadModWriteIns();
-    }else if(opcode == ASL_ACCUMULATOR_0A){
-        if(cycleCounter == 1){
+    }else if(opcode == ASL_ACCUMULATOR_0A){    
+        if(cycleCounter == 1){            
             //cycle 2
-            if (accumulator >= 0x80){
-                SetFlag(CPUFLAGS::CARRY);
-            }else{
-                ClearFlag(CPUFLAGS::CARRY);
-            }
-
-            accumulator = accumulator << 1;
-            isZero(accumulator);
-            isNegative(accumulator);
+            Ope_ASL();
             cycleCounter++;
         }
     }else if(opcode == ASL_ABSOLUTE_0E){
@@ -1301,6 +1345,31 @@ void CPU6502::Ins_ASL()
         ZeroPageXReadModWriteIns();
     }else if(opcode == ASL_ABSOLUTEX_1E){
         AbsoluteXReadModWriteIns();
+    }
+}
+
+void CPU6502::Ope_ASL(){
+    if(opcode != ASL_ACCUMULATOR_0A){
+        if (dataBus >= 0x80){
+            SetFlag(CPUFLAGS::CARRY);
+        }else{
+            ClearFlag(CPUFLAGS::CARRY);
+        }
+
+        dataBus = dataBus << 1;
+
+        isZero(dataBus);
+        isNegative(dataBus);
+    }else{
+        if (accumulator >= 0x80){
+            SetFlag(CPUFLAGS::CARRY);
+        }else{
+            ClearFlag(CPUFLAGS::CARRY);
+        }
+
+        accumulator = accumulator << 1;
+        isZero(accumulator);
+        isNegative(accumulator);
     }
 }
 
@@ -2078,10 +2147,14 @@ void CPU6502::Ins_ORA(){
 
     if(cycleCounter == cycleCounterMax){
         //cycle 3
-        accumulator |= dataBus;
-        isZero(accumulator);
-        isNegative(accumulator);
+        Ope_ORA();
     }
+}
+
+void CPU6502::Ope_ORA(){
+    accumulator |= dataBus;
+    isZero(accumulator);
+    isNegative(accumulator);
 }
 
 void CPU6502::Ins_PHA() {
@@ -2323,6 +2396,24 @@ void CPU6502::Ins_SEI() {
     // DO IRQ
 }
 
+void CPU6502::Ins_SLO(){
+    if(opcode == SLO_INDIRECTX_03){
+        IndirectXReadModWriteIns();
+    }else if(opcode == SLO_ZEROPAGE_07){
+        ZeroPageReadModWriteIns();
+    }else if(opcode == SLO_ABSOLUTE_0F){
+        AbsoluteReadModWriteIns();
+    }else if(opcode == SLO_INDIRECTY_13){
+        IndirectYReadModWriteIns();
+    }else if(opcode == SLO_ZEROPAGEX_17){
+        ZeroPageXReadModWriteIns();
+    }else if(opcode == SLO_ABSOLUTEY_1B){
+        AbsoluteYReadModWriteIns();
+    }else if(opcode == SLO_ABSOLUTEX_1F){
+        AbsoluteXReadModWriteIns();
+    }
+}
+
 void CPU6502::Ins_STA(){
     if(opcode == STA_ZEROPAGE_85){
         // max 3 cycles
@@ -2479,6 +2570,9 @@ void CPU6502::EmulateCycle()
             case ORA_INDIRECTX_01: // 0x01
                 Ins_ORA();
                 break;
+            case SLO_INDIRECTX_03:
+                Ins_SLO();
+                break;
             case NOP_04:
                 Ins_NOP_ZEROPAGE();
                 break;
@@ -2487,6 +2581,9 @@ void CPU6502::EmulateCycle()
                 break;
             case ASL_ZEROPAGE_06:
                 Ins_ASL();
+                break;
+            case SLO_ZEROPAGE_07:
+                Ins_SLO();
                 break;
             case PHP_08:
                 Ins_PHP();
@@ -2506,6 +2603,9 @@ void CPU6502::EmulateCycle()
             case ASL_ABSOLUTE_0E:
                 Ins_ASL();
                 break;
+            case SLO_ABSOLUTE_0F:
+                Ins_SLO();
+                break;
             default:
                 printf("Unknown opcode [0x00]: 0x%X\n", opcode);
                 break;
@@ -2520,6 +2620,9 @@ void CPU6502::EmulateCycle()
             case ORA_INDIRECTY_11:
                 Ins_ORA();
                 break;
+            case SLO_INDIRECTY_13:
+                Ins_SLO();
+                break;
             case NOP_ZEROPAGEX_14:
                 Ins_NOP_ZEROPAGEX();
                 break;
@@ -2528,6 +2631,9 @@ void CPU6502::EmulateCycle()
                 break;
             case ASL_ZEROPAGEX_16:
                 Ins_ASL();
+                break;
+            case SLO_ZEROPAGEX_17:
+                Ins_SLO();
                 break;
             case CLC_18:
                 Ins_CLC();
@@ -2538,6 +2644,9 @@ void CPU6502::EmulateCycle()
             case NOP_1A:
                 Ins_NOP();
                 break;
+            case SLO_ABSOLUTEY_1B:
+                Ins_SLO();
+                break;
             case NOP_ABSOLUTEX_1C:
                 Ins_NOP_ABSOLUTEX();
                 break;
@@ -2546,6 +2655,9 @@ void CPU6502::EmulateCycle()
                 break;
             case ASL_ABSOLUTEX_1E:
                 Ins_ASL();
+                break;
+            case SLO_ABSOLUTEX_1F:
+                Ins_SLO();
                 break;
             default:
                 printf("Unknown opcode [0x10]: 0x%X\n", opcode);
