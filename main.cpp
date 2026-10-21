@@ -2560,9 +2560,9 @@ void CPU6502::EmulateCycle()
         pcdebug = pc;
 
         if(((emulator.ppu.ppuctrl & PPU_FLAGS::NMI_FLAG) == PPU_FLAGS::NMI_FLAG) && 
-        ((emulator.ppu.ppustatus & PPU_FLAGS::PPU_VBLANK) == PPU_FLAGS::PPU_VBLANK) && beforeNMI == false){
+        ((emulator.ppu.ppustatus & PPU_FLAGS::PPU_VBLANK) == PPU_FLAGS::PPU_VBLANK) && stopNMIinstruction == false){
             nmi = true;
-            beforeNMI = nmi;
+            stopNMIinstruction = true;
             opcode = BRK_00;
             cycleCounter++;
             // printf("interruput opcode: 0x%X\n",opcode);

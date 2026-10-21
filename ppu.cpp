@@ -239,7 +239,7 @@ void PPU::EmulateCycle(){
             ClearFlag(SECTIONS6502::PPUSTATUS, PPU_FLAGS::PPU_VBLANK);
             ClearFlag(SECTIONS6502::PPUSTATUS, PPU_FLAGS::PPU_SPRITEHIT);
             ClearFlag(SECTIONS6502::PPUSTATUS, PPU_FLAGS::PPU_OVERFLOW);
-            emulator.cpu.beforeNMI = false;
+            emulator.cpu.stopNMIinstruction = false;
         }
 
         ShiftRegisterMoveBit();
