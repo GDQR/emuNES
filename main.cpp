@@ -2373,7 +2373,7 @@ void CPU6502::Ins_SBC() {
     }
 
     if(cycleCounter == cycleCounterMax){
-        unsigned char result = accumulator;
+        short result = accumulator;
         result -= dataBus;
         if((statusFlag & CPUFLAGS::CARRY) != CPUFLAGS::CARRY){
             result -= 1;
@@ -2383,14 +2383,14 @@ void CPU6502::Ins_SBC() {
         }else{
             ClearFlag(CPUFLAGS::OVERFLOW);
         }
-        if((result & 0x80) != 0x80){
+        if(result >= 0){
             SetFlag(CPUFLAGS::CARRY);
         }else{
             ClearFlag(CPUFLAGS::CARRY);
         }
-        isZero(result);
-        isNegative(result);
-        accumulator = result;
+        accumulator = (unsigned char) result;
+        isZero(accumulator);
+        isNegative(accumulator);
     }
 }
 
