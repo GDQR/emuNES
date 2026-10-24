@@ -335,7 +335,15 @@ enum Opcode
     RLA_INDIRECTY_33 = 0X33,
     RLA_ZEROPAGEX_37 = 0X37,
     RLA_ABSOLUTEY_3B = 0X3B,
-    RLA_ABSOLUTEX_3F = 0X3F
+    RLA_ABSOLUTEX_3F = 0X3F,
+
+    SRE_INDIRECTX_43 = 0X43,
+    SRE_ZEROPAGE_47  = 0X47,
+    SRE_ABSOLUTE_4F  = 0X4F,
+    SRE_INDIRECTY_53 = 0X53,
+    SRE_ZEROPAGEX_57 = 0X57,
+    SRE_ABSOLUTEY_5B = 0X5B,
+    SRE_ABSOLUTEX_5F = 0X5F,
 };
 // clang-format on
 
@@ -533,16 +541,10 @@ void CPU6502::AbsoluteReadModWriteIns(){
             Ope_ASL();
             Ope_ORA();
         }else if(opcode == LSR_ABSOLUTE_4E){
-            if((dataBus & CPUFLAGS::CARRY) == 0x1){
-                SetFlag(CPUFLAGS::CARRY);
-            }else{
-                ClearFlag(CPUFLAGS::CARRY);
-            }
-
-            dataBus = dataBus >> 1;
-
-            isZero(dataBus);
-            isNegative(dataBus);
+            Ope_LSR();
+        }else if(opcode == SRE_ABSOLUTE_4F){
+            Ope_LSR();
+            Ope_EOR();
         }else if(opcode == ROL_ABSOLUTE_2E){
             Ope_ROL();
         }else if(opcode == RLA_ABSOLUTE_2F){
@@ -630,20 +632,15 @@ void CPU6502::ZeroPageReadModWriteIns(){
             Ope_ASL();
             Ope_ORA();
         }else if(opcode == LSR_ZEROPAGE_46){
-            if((dataBus & CPUFLAGS::CARRY) == 0x1){
-                SetFlag(CPUFLAGS::CARRY);
-            }else{
-                ClearFlag(CPUFLAGS::CARRY);
-            }
-
-            dataBus = dataBus >> 1;
-            isZero(dataBus);
-            isNegative(dataBus);
+            Ope_LSR();
         }else if(opcode == ROL_ZEROPAGE_26){
             Ope_ROL();
         }else if(opcode == RLA_ZEROPAGE_27){
             Ope_ROL();
             Ope_AND();
+        }else if(opcode == SRE_ZEROPAGE_47){
+            Ope_LSR();
+            Ope_EOR();
         }else if(opcode == ROR_ZEROPAGE_66){
             char carryFuture = 0; //value bit 0
 
@@ -724,29 +721,16 @@ void CPU6502::ZeroPageXReadModWriteIns() {
         }else if(opcode == SLO_ZEROPAGEX_17){
             Ope_ASL();
             Ope_ORA();
-        }
-        else if(opcode == DEC_ZEROPAGEX_D6){
-            dataBus--;
-            isZero(dataBus);
-            isNegative(dataBus);
-        }else if(opcode == INC_ZEROPAGEX_F6){
-            dataBus++;
-            isZero(dataBus);
-            isNegative(dataBus);
-        }else if(opcode == LSR_ZEROPAGEX_56){
-            if((dataBus & CPUFLAGS::CARRY) == 0x1){
-                SetFlag(CPUFLAGS::CARRY);
-            }else{
-                ClearFlag(CPUFLAGS::CARRY);
-            }
-            dataBus = dataBus >> 1;
-            isZero(dataBus);
-            isNegative(dataBus);
         }else if(opcode == ROL_ZEROPAGEX_36){
             Ope_ROL();
         }else if(opcode == RLA_ZEROPAGEX_37){
             Ope_ROL();
             Ope_AND();
+        }else if(opcode == LSR_ZEROPAGEX_56){
+            Ope_LSR();
+        }else if(opcode == SRE_ZEROPAGEX_57){
+            Ope_LSR();
+            Ope_EOR();
         }else if(opcode == ROR_ZEROPAGEX_76){
             char carryFuture = 0; //value bit 0
             if (((dataBus) & 0x01) == 0x01){
@@ -762,6 +746,14 @@ void CPU6502::ZeroPageXReadModWriteIns() {
             }else{
                 ClearFlag(CARRY);
             }
+            isZero(dataBus);
+            isNegative(dataBus);
+        }else if(opcode == DEC_ZEROPAGEX_D6){
+            dataBus--;
+            isZero(dataBus);
+            isNegative(dataBus);
+        }else if(opcode == INC_ZEROPAGEX_F6){
+            dataBus++;
             isZero(dataBus);
             isNegative(dataBus);
         }
@@ -873,16 +865,11 @@ void CPU6502::AbsoluteXReadModWriteIns() {
             Ope_ROL();
             Ope_AND();
         }else if(opcode == LSR_ABSOLUTEX_5E){
-            if((dataBus & CPUFLAGS::CARRY) == 0x1){
-                SetFlag(CPUFLAGS::CARRY);
-            }else{
-                ClearFlag(CPUFLAGS::CARRY);
-            }
-            dataBus = dataBus >> 1;
-            isZero(dataBus);
-            isNegative(dataBus);
-        }
-         else if(opcode == ROR_ABSOLUTEX_7E){
+            Ope_LSR();
+        }else if(opcode == SRE_ABSOLUTEX_5F){
+            Ope_LSR();
+            Ope_EOR();
+        }else if(opcode == ROR_ABSOLUTEX_7E){
             char carryFuture = 0; //value bit 0
             if (((dataBus) & 0x01) == 0x01){
                 carryFuture = 1;
@@ -988,6 +975,9 @@ void CPU6502::AbsoluteYReadModWriteIns() {
         }else if(opcode == RLA_ABSOLUTEY_3B){
             Ope_ROL();
             Ope_AND();
+        }else if(opcode == SRE_ABSOLUTEY_5B){
+            Ope_LSR();
+            Ope_EOR();
         }
         cycleCounter++;
     }else if(cycleCounter == 6){
@@ -1067,6 +1057,9 @@ void CPU6502::IndirectXReadModWriteIns() {
         }else if(opcode == RLA_INDIRECTX_23){
             Ope_ROL();
             Ope_AND();
+        }else if(opcode == SRE_INDIRECTX_43){
+            Ope_LSR();
+            Ope_EOR();
         }
         cycleCounter++;
     }else if(cycleCounter == 7){
@@ -1150,6 +1143,9 @@ void CPU6502::IndirectYReadModWriteIns() {
         }else if(opcode == RLA_INDIRECTY_33){
             Ope_ROL();
             Ope_AND();
+        }else if(opcode == SRE_INDIRECTY_53){
+            Ope_LSR();
+            Ope_EOR();
         }
         cycleCounter++;
     }else if(cycleCounter == 7){ 
@@ -1860,6 +1856,12 @@ void CPU6502::Ins_EOR() {
     }
 }
 
+void CPU6502::Ope_EOR(){
+    accumulator ^= dataBus;
+    isZero(accumulator);
+    isNegative(accumulator);
+}
+
 void CPU6502::Ins_INC() {
     if(opcode == INC_ZEROPAGE_E6){
         // max cycles 5
@@ -2041,14 +2043,7 @@ void CPU6502::Ins_LDY(){
 void CPU6502::Ins_LSR(){
     if(opcode == LSR_ACCUMULATOR_4A){
         //Max 2 cycles
-        if((accumulator & CPUFLAGS::CARRY) == 0x1){
-            SetFlag(CPUFLAGS::CARRY);
-        }else{
-            ClearFlag(CPUFLAGS::CARRY);
-        }
-        accumulator = accumulator >> 1;
-        isZero(accumulator);
-        isNegative(accumulator);
+        Ope_LSR();
         cycleCounter++;
     }else if(opcode == LSR_ABSOLUTE_4E){
         AbsoluteReadModWriteIns();
@@ -2058,6 +2053,30 @@ void CPU6502::Ins_LSR(){
         ZeroPageXReadModWriteIns();
     }else if(opcode == LSR_ABSOLUTEX_5E){
         AbsoluteXReadModWriteIns();
+    }
+}
+
+void CPU6502::Ope_LSR(){
+    if(opcode != LSR_ACCUMULATOR_4A){
+        if((dataBus & CPUFLAGS::CARRY) == 0x1){
+            SetFlag(CPUFLAGS::CARRY);
+        }else{
+            ClearFlag(CPUFLAGS::CARRY);
+        }
+
+        dataBus = dataBus >> 1;
+
+        isZero(dataBus);
+        isNegative(dataBus);
+    }else{
+        if((accumulator & CPUFLAGS::CARRY) == 0x1){
+            SetFlag(CPUFLAGS::CARRY);
+        }else{
+            ClearFlag(CPUFLAGS::CARRY);
+        }
+        accumulator = accumulator >> 1;
+        isZero(accumulator);
+        isNegative(accumulator);
     }
 }
 
@@ -2456,6 +2475,24 @@ void CPU6502::Ins_SLO(){
     }
 }
 
+void CPU6502::Ins_SRE(){
+    if(opcode == SRE_INDIRECTX_43){
+        IndirectXReadModWriteIns();
+    }else if(opcode == SRE_ZEROPAGE_47){
+        ZeroPageReadModWriteIns();
+    }else if(opcode == SRE_ABSOLUTE_4F){
+        AbsoluteReadModWriteIns();
+    }else if(opcode == SRE_INDIRECTY_53){
+        IndirectYReadModWriteIns();
+    }else if(opcode == SRE_ZEROPAGEX_57){
+        ZeroPageXReadModWriteIns();
+    }else if(opcode == SRE_ABSOLUTEY_5B){
+        AbsoluteYReadModWriteIns();
+    }else if(opcode == SRE_ABSOLUTEX_5F){
+        AbsoluteXReadModWriteIns();
+    }
+}
+
 void CPU6502::Ins_STA(){
     if(opcode == STA_ZEROPAGE_85){
         // max 3 cycles
@@ -2818,6 +2855,9 @@ void CPU6502::EmulateCycle()
             case EOR_INDIRECTX_41:
                 Ins_EOR();
                 break;
+            case SRE_INDIRECTX_43:
+                Ins_SRE();
+                break;
             case NOP_44:
                 Ins_NOP_ZEROPAGE();
                 break;
@@ -2826,6 +2866,9 @@ void CPU6502::EmulateCycle()
                 break;
             case LSR_ZEROPAGE_46:
                 Ins_LSR();
+                break;
+            case SRE_ZEROPAGE_47:
+                Ins_SRE();
                 break;
             case PHA_48:
                 Ins_PHA();
@@ -2845,6 +2888,9 @@ void CPU6502::EmulateCycle()
             case LSR_ABSOLUTE_4E:
                 Ins_LSR();
                 break;
+            case SRE_ABSOLUTE_4F:
+                Ins_SRE();
+                break;
             default:
                 printf("Unknown opcode [0x40]: 0x%X\n", opcode);
                 break;
@@ -2859,6 +2905,9 @@ void CPU6502::EmulateCycle()
             case EOR_INDIRECTY_51:
                 Ins_EOR();
                 break;
+            case SRE_INDIRECTY_53:
+                Ins_SRE();
+                break;
             case NOP_ZEROPAGEX_54:
                 Ins_NOP_ZEROPAGEX();
                 break;
@@ -2867,6 +2916,9 @@ void CPU6502::EmulateCycle()
                 break;
             case LSR_ZEROPAGEX_56:
                 Ins_LSR();
+                break;
+            case SRE_ZEROPAGEX_57:
+                Ins_SRE();
                 break;
             case CLI_58:
                 Ins_CLI();
@@ -2877,6 +2929,9 @@ void CPU6502::EmulateCycle()
             case NOP_5A:
                 Ins_NOP();
                 break;
+            case SRE_ABSOLUTEY_5B:
+                Ins_SRE();
+                break;
             case NOP_ABSOLUTEX_5C:
                 Ins_NOP_ABSOLUTEX();
                 break;
@@ -2885,6 +2940,9 @@ void CPU6502::EmulateCycle()
                 break;
             case LSR_ABSOLUTEX_5E:
                 Ins_LSR();
+                break;
+            case SRE_ABSOLUTEX_5F:
+                Ins_SRE();
                 break;
             default:
                 printf("Unknown opcode [0x50]: 0x%X\n", opcode);

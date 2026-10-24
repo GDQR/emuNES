@@ -150,6 +150,7 @@ struct CPU6502
     void Ins_DEX();
     void Ins_DEY();
     void Ins_EOR();
+    void Ope_EOR();
     void Ins_INC();
     void Ins_INX();
     void Ins_INY();
@@ -159,6 +160,7 @@ struct CPU6502
     void Ins_LDX();
     void Ins_LDY();
     void Ins_LSR();
+    void Ope_LSR();
     void Ins_NOP();
     void Ins_NOP_IMMEDIATE();
     void Ins_NOP_ABSOLUTE();
@@ -182,6 +184,7 @@ struct CPU6502
     void Ins_SED();
     void Ins_SEI();
     void Ins_SLO();
+    void Ins_SRE();
     void Ins_STA();
     void Ins_STX();
     void Ins_STY();
@@ -201,8 +204,8 @@ const char cycles[256] = {
     2, 5, 0, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,
     6, 6, 0, 8, 3, 3, 5, 5, 4, 2, 2, 0, 4, 4, 6, 6,
     2, 5, 0, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,
-    6, 6, 0, 0, 3, 3, 5, 0, 3, 2, 2, 0, 3, 4, 6, 0,
-    2, 5, 0, 0, 4, 4, 6, 0, 2, 4, 2, 0, 4, 4, 7, 0,
+    6, 6, 0, 8, 3, 3, 5, 5, 3, 2, 2, 0, 3, 4, 6, 6,
+    2, 5, 0, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,
     6, 6, 0, 0, 3, 3, 5, 0, 4, 2, 2, 0, 5, 4, 6, 0,
     2, 5, 0, 0, 4, 4, 6, 0, 2, 4, 2, 0, 4, 4, 7, 0,
     2, 6, 2, 0, 3, 3, 3, 0, 2, 2, 2, 0, 4, 4, 4, 0,
