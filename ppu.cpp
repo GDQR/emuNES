@@ -75,6 +75,7 @@ void PPU::Power(){
     scanlineDot = 0; 
     scanlineRow = 0;
 
+    isEvenFrame = false;
     // Registers
     ppuctrl = 0;
     ppumask = 0;
@@ -90,6 +91,8 @@ void PPU::Reset(){
     // Screen Settings
     scanlineDot = 0;
     scanlineRow = 0;
+
+    isEvenFrame = true;
 
     // Registers
     ppuctrl = 0;
@@ -266,13 +269,20 @@ void PPU::EmulateCycle(){
         }
 
         scanlineDot++;
-        if(scanlineDot > PPU_SPECIALCYCLES::FINAL_SCANLINE){
-            isEvenFrame = false;
+        if(isEvenFrame == true){
+            if(scanlineDot > PPU_SPECIALCYCLES::FINAL_SCANLINE){
+                isEvenFrame = !isEvenFrame;
+                renderState = PPURENDER_STATE::NORMAL_RENDER;
+                cycleCounter = 0;
+                scanlineDot = 1;
+                scanlineRow = 0;
+            }
+        }else if(isEvenFrame == false && scanlineDot >= 339 ){
+            isEvenFrame = !isEvenFrame;
             renderState = PPURENDER_STATE::NORMAL_RENDER;
             cycleCounter = 0;
             scanlineDot = 0;
             scanlineRow = 0;
-            // printf("estoy en NORMAL_RENDER\n");
         }
         break;
     case PPURENDER_STATE::NORMAL_RENDER: // scanline 0 to 239
