@@ -2647,43 +2647,29 @@ void CPU6502::EmulateCycle()
                 Ins_BRK();
                 break;
             case ORA_INDIRECTX_01: // 0x01
+            case ORA_ZEROPAGE_05:
+            case ORA_IMMEDIATE_09:
+            case ORA_ABSOLUTE_0D:
                 Ins_ORA();
                 break;
             case SLO_INDIRECTX_03:
+            case SLO_ZEROPAGE_07:
+            case SLO_ABSOLUTE_0F:
                 Ins_SLO();
                 break;
             case NOP_04:
                 Ins_NOP_ZEROPAGE();
                 break;
-            case ORA_ZEROPAGE_05: // 0x05
-                Ins_ORA();
-                break;
             case ASL_ZEROPAGE_06:
+            case ASL_ACCUMULATOR_0A:
+            case ASL_ABSOLUTE_0E:
                 Ins_ASL();
-                break;
-            case SLO_ZEROPAGE_07:
-                Ins_SLO();
                 break;
             case PHP_08:
                 Ins_PHP();
                 break;
-            case ORA_IMMEDIATE_09:
-                Ins_ORA();
-                break;
-            case ASL_ACCUMULATOR_0A:
-                Ins_ASL();
-                break;
             case NOP_ABSOLUTE_0C:
                 Ins_NOP_ABSOLUTE();
-                break;
-            case ORA_ABSOLUTE_0D:
-                Ins_ORA();
-                break;
-            case ASL_ABSOLUTE_0E:
-                Ins_ASL();
-                break;
-            case SLO_ABSOLUTE_0F:
-                Ins_SLO();
                 break;
             default:
                 printf("Unknown opcode [0x00]: 0x%X\n", opcode);
@@ -2697,46 +2683,32 @@ void CPU6502::EmulateCycle()
                 Ins_BPL();
                 break;
             case ORA_INDIRECTY_11:
+            case ORA_ZEROPAGEX_15:
+            case ORA_ABSOLUTEY_19:
+            case ORA_ABSOLUTEX_1D:
                 Ins_ORA();
                 break;
             case SLO_INDIRECTY_13:
+            case SLO_ZEROPAGEX_17:
+            case SLO_ABSOLUTEY_1B:
+            case SLO_ABSOLUTEX_1F:
                 Ins_SLO();
                 break;
             case NOP_ZEROPAGEX_14:
                 Ins_NOP_ZEROPAGEX();
                 break;
-            case ORA_ZEROPAGEX_15:
-                Ins_ORA();
-                break;
             case ASL_ZEROPAGEX_16:
+            case ASL_ABSOLUTEX_1E:
                 Ins_ASL();
-                break;
-            case SLO_ZEROPAGEX_17:
-                Ins_SLO();
                 break;
             case CLC_18:
                 Ins_CLC();
                 break;
-            case ORA_ABSOLUTEY_19:
-                Ins_ORA();
-                break;
             case NOP_1A:
                 Ins_NOP();
                 break;
-            case SLO_ABSOLUTEY_1B:
-                Ins_SLO();
-                break;
             case NOP_ABSOLUTEX_1C:
                 Ins_NOP_ABSOLUTEX();
-                break;
-            case ORA_ABSOLUTEX_1D:
-                Ins_ORA();
-                break;
-            case ASL_ABSOLUTEX_1E:
-                Ins_ASL();
-                break;
-            case SLO_ABSOLUTEX_1F:
-                Ins_SLO();
                 break;
             default:
                 printf("Unknown opcode [0x10]: 0x%X\n", opcode);
@@ -2750,43 +2722,27 @@ void CPU6502::EmulateCycle()
                 Ins_JSR();
                 break;
             case AND_INDIRECTX_21:
-                Ins_AND();
-                break;
-            case RLA_INDIRECTX_23:
-                Ins_RLA();
-                break;
-            case BIT_ZEROPAGE_24:
-                Ins_BIT();
-                break;
             case AND_ZEROPAGE_25:
-                Ins_AND();
-                break;
-            case ROL_ZEROPAGE_26:
-                Ins_ROL();
-                break;
-            case RLA_ZEROPAGE_27:
-                Ins_RLA();
-                break;
-            case PLP_28:
-                Ins_PLP();
-                break;
             case AND_IMMEDIATE_29:
-                Ins_AND();
-                break;
-            case ROL_ACCUMULATOR_2A:
-                Ins_ROL();
-                break;
-            case BIT_ABSOLUTE_2C:
-                Ins_BIT();
-                break;
             case AND_ABSOLUTE_2D:
                 Ins_AND();
                 break;
+            case RLA_INDIRECTX_23:
+            case RLA_ZEROPAGE_27:
+            case RLA_ABSOLUTE_2F:
+                Ins_RLA();
+                break;
+            case BIT_ZEROPAGE_24:
+            case BIT_ABSOLUTE_2C:
+                Ins_BIT();
+                break;
+            case ROL_ZEROPAGE_26:
+            case ROL_ACCUMULATOR_2A:
             case ROL_ABSOLUTE_2E:
                 Ins_ROL();
                 break;
-            case RLA_ABSOLUTE_2F:
-                Ins_RLA();
+            case PLP_28:
+                Ins_PLP();
                 break;
             default:
                 printf("Unknown opcode [0x20]: 0x%X\n", opcode);
@@ -2800,46 +2756,32 @@ void CPU6502::EmulateCycle()
                 Ins_BMI();
                 break;
             case AND_INDIRECTY_31:
+            case AND_ZEROPAGEX_35:
+            case AND_ABSOLUTEY_39:
+            case AND_ABSOLUTEX_3D:
                 Ins_AND();
                 break;
             case RLA_INDIRECTY_33:
+            case RLA_ZEROPAGEX_37:
+            case RLA_ABSOLUTEY_3B:
+            case RLA_ABSOLUTEX_3F:
                 Ins_RLA();
                 break;
             case NOP_ZEROPAGEX_34:
                 Ins_NOP_ZEROPAGEX();
                 break;
-            case AND_ZEROPAGEX_35:
-                Ins_AND();
-                break;
             case ROL_ZEROPAGEX_36:
+            case ROL_ABSOLUTEX_3E:
                 Ins_ROL();
-                break;
-            case RLA_ZEROPAGEX_37:
-                Ins_RLA();
                 break;
             case SEC_38:
                 Ins_SEC();
                 break;
-            case AND_ABSOLUTEY_39:
-                Ins_AND();
-                break;
             case NOP_3A:
                 Ins_NOP();
                 break;
-            case RLA_ABSOLUTEY_3B:
-                Ins_RLA();
-                break;
             case NOP_ABSOLUTEX_3C:
                 Ins_NOP_ABSOLUTEX();
-                break;
-            case AND_ABSOLUTEX_3D:
-                Ins_AND();
-                break;
-            case ROL_ABSOLUTEX_3E:
-                Ins_ROL();
-                break;
-            case RLA_ABSOLUTEX_3F:
-                Ins_RLA();
                 break;
             default:
                 printf("Unknown opcode [0x30]: 0x%X\n", opcode);
@@ -2853,43 +2795,29 @@ void CPU6502::EmulateCycle()
                 Ins_RTI();
                 break;
             case EOR_INDIRECTX_41:
+            case EOR_ZEROPAGE_45:
+            case EOR_IMMEDIATE_49:
+            case EOR_ABSOLUTE_4D:
                 Ins_EOR();
                 break;
             case SRE_INDIRECTX_43:
+            case SRE_ZEROPAGE_47:
+            case SRE_ABSOLUTE_4F:
                 Ins_SRE();
                 break;
             case NOP_44:
                 Ins_NOP_ZEROPAGE();
                 break;
-            case EOR_ZEROPAGE_45:
-                Ins_EOR();
-                break;
             case LSR_ZEROPAGE_46:
+            case LSR_ACCUMULATOR_4A:
+            case LSR_ABSOLUTE_4E:
                 Ins_LSR();
-                break;
-            case SRE_ZEROPAGE_47:
-                Ins_SRE();
                 break;
             case PHA_48:
                 Ins_PHA();
                 break;
-            case EOR_IMMEDIATE_49:
-                Ins_EOR();
-                break;
-            case LSR_ACCUMULATOR_4A:
-                Ins_LSR();
-                break;
             case JMP_ABSOLUTE_4C:
                 Ins_JMP();
-                break;
-            case EOR_ABSOLUTE_4D:
-                Ins_EOR();
-                break;
-            case LSR_ABSOLUTE_4E:
-                Ins_LSR();
-                break;
-            case SRE_ABSOLUTE_4F:
-                Ins_SRE();
                 break;
             default:
                 printf("Unknown opcode [0x40]: 0x%X\n", opcode);
@@ -2903,46 +2831,32 @@ void CPU6502::EmulateCycle()
                 Ins_BVC();
                 break;
             case EOR_INDIRECTY_51:
+            case EOR_ZEROPAGEX_55:
+            case EOR_ABSOLUTEY_59:
+            case EOR_ABSOLUTEX_5D:
                 Ins_EOR();
                 break;
             case SRE_INDIRECTY_53:
+            case SRE_ZEROPAGEX_57:
+            case SRE_ABSOLUTEY_5B:
+            case SRE_ABSOLUTEX_5F:
                 Ins_SRE();
                 break;
             case NOP_ZEROPAGEX_54:
                 Ins_NOP_ZEROPAGEX();
                 break;
-            case EOR_ZEROPAGEX_55:
-                Ins_EOR();
-                break;
             case LSR_ZEROPAGEX_56:
+            case LSR_ABSOLUTEX_5E:
                 Ins_LSR();
-                break;
-            case SRE_ZEROPAGEX_57:
-                Ins_SRE();
                 break;
             case CLI_58:
                 Ins_CLI();
                 break;
-            case EOR_ABSOLUTEY_59:
-                Ins_EOR();
-                break;
             case NOP_5A:
                 Ins_NOP();
                 break;
-            case SRE_ABSOLUTEY_5B:
-                Ins_SRE();
-                break;
             case NOP_ABSOLUTEX_5C:
                 Ins_NOP_ABSOLUTEX();
-                break;
-            case EOR_ABSOLUTEX_5D:
-                Ins_EOR();
-                break;
-            case LSR_ABSOLUTEX_5E:
-                Ins_LSR();
-                break;
-            case SRE_ABSOLUTEX_5F:
-                Ins_SRE();
                 break;
             default:
                 printf("Unknown opcode [0x50]: 0x%X\n", opcode);
@@ -2956,34 +2870,24 @@ void CPU6502::EmulateCycle()
                 Ins_RTS();
                 break;
             case ADC_INDIRECTX_61:
+            case ADC_ZEROPAGE_65:
+            case ADC_IMMEDIATE_69:
+            case ADC_ABSOLUTE_6D:
                 Ins_ADC();
                 break;
             case NOP_64:
                 Ins_NOP_ZEROPAGE();
                 break;
-            case ADC_ZEROPAGE_65:
-                Ins_ADC();
-                break;
             case ROR_ZEROPAGE_66:
+            case ROR_ACCUMULATOR_6A:
+            case ROR_ABSOLUTE_6E:
                 Ins_ROR();
                 break;
             case PLA_68:
                 Ins_PLA();
                 break;
-            case ADC_IMMEDIATE_69:
-                Ins_ADC();
-                break;
-            case ROR_ACCUMULATOR_6A:
-                Ins_ROR();
-                break;
             case JMP_INDIRECT_6C:
                 Ins_JMP();
-                break;
-            case ADC_ABSOLUTE_6D:
-                Ins_ADC();
-                break;
-            case ROR_ABSOLUTE_6E:
-                Ins_ROR();
                 break;
             default:
                 printf("Unknown opcode [0x60]: 0x%X\n", opcode);
@@ -2997,34 +2901,26 @@ void CPU6502::EmulateCycle()
                 Ins_BVS();
                 break;
             case ADC_INDIRECTY_71:
+            case ADC_ZEROPAGEX_75:
+            case ADC_ABSOLUTEY_79:
+            case ADC_ABSOLUTEX_7D:
                 Ins_ADC();
                 break;
             case NOP_ZEROPAGEX_74:
                 Ins_NOP_ZEROPAGEX();
                 break;
-            case ADC_ZEROPAGEX_75:
-                Ins_ADC();
-                break;
             case ROR_ZEROPAGEX_76:
+            case ROR_ABSOLUTEX_7E:
                 Ins_ROR();
                 break;
             case SEI_78:
                 Ins_SEI();
                 break;
-            case ADC_ABSOLUTEY_79:
-                Ins_ADC();
-                break;
             case NOP_7A:
                 Ins_NOP();
                 break;
-            case ADC_ABSOLUTEX_7D:
-                Ins_ADC();
-                break;
             case NOP_ABSOLUTEX_7C:
                 Ins_NOP_ABSOLUTEX();
-                break;
-            case ROR_ABSOLUTEX_7E:
-                Ins_ROR();
                 break;
             default:
                 printf("Unknown opcode [0x70]: 0x%X\n", opcode);
@@ -3035,40 +2931,28 @@ void CPU6502::EmulateCycle()
             switch (opcode)
             {
             case NOP_IMMEDIATE_80:
+            case NOP_IMMEDIATE_82:
+            case NOP_IMMEDIATE_89:
                 Ins_NOP_IMMEDIATE();
                 break;
             case STA_INDIRECTX_81:
+            case STA_ZEROPAGE_85:
+            case STA_ABSOLUTE_8D:
                 Ins_STA();
-                break;
-            case NOP_IMMEDIATE_82:
-                Ins_NOP_IMMEDIATE();
                 break;
             case STY_ZEROPAGE_84:
+            case STY_ABSOLUTE_8C:
                 Ins_STY();
                 break;
-            case STA_ZEROPAGE_85:
-                Ins_STA();
-                break;
             case STX_ZEROPAGE_86:
+            case STX_ABSOLUTE_8E:
                 Ins_STX();
                 break;
             case DEY_88:
                 Ins_DEY();
                 break;
-            case NOP_IMMEDIATE_89:
-                Ins_NOP_IMMEDIATE();
-                break;
             case TXA_8A:
                 Ins_TXA();
-                break;
-            case STY_ABSOLUTE_8C:
-                Ins_STY();
-                break;
-            case STA_ABSOLUTE_8D:
-                Ins_STA();
-                break;
-            case STX_ABSOLUTE_8E:
-                Ins_STX();
                 break;
             default:
                 printf("Unknown opcode [0x80]: 0x%X\n", opcode);
@@ -3082,13 +2966,13 @@ void CPU6502::EmulateCycle()
                 Ins_BCC();
                 break;
             case STA_INDIRECTY_91:
+            case STA_ZEROPAGEX_95:
+            case STA_ABSOLUTEY_99:
+            case STA_ABSOLUTEX_9D:
                 Ins_STA();
                 break;
             case STY_ZEROPAGEX_94:
                 Ins_STY();
-                break;
-            case STA_ZEROPAGEX_95:
-                Ins_STA();
                 break;
             case STX_ZEROPAGEY_96:
                 Ins_STX();
@@ -3096,14 +2980,8 @@ void CPU6502::EmulateCycle()
             case TYA_98:
                 Ins_TYA();
                 break;
-            case STA_ABSOLUTEY_99:
-                Ins_STA();
-                break;
             case TXS_9A:
                 Ins_TXS();
-                break;
-            case STA_ABSOLUTEX_9D:
-                Ins_STA();
                 break;
             default:
                 printf("Unknown opcode [0x90]: 0x%X\n", opcode);
@@ -3114,40 +2992,26 @@ void CPU6502::EmulateCycle()
             switch (opcode)
             {
             case LDY_IMMEDIATE_A0:
+            case LDY_ZEROPAGE_A4:
+            case LDY_ABSOLUTE_AC:
                 Ins_LDY();
                 break;
             case LDA_INDIRECTX_A1:
+            case LDA_ZEROPAGE_A5:
+            case LDA_IMMEDIATE_A9:
+            case LDA_ABSOLUTE_AD:
                 Ins_LDA();
                 break;
             case LDX_IMMEDIATE_A2:
-                Ins_LDX();
-                break;
-            case LDY_ZEROPAGE_A4:
-                Ins_LDY();
-                break;
-            case LDA_ZEROPAGE_A5:
-                Ins_LDA();
-                break;
             case LDX_ZEROPAGE_A6:
+            case LDX_ABSOLUTE_AE:
                 Ins_LDX();
                 break;
             case TAY_A8:
                 Ins_TAY();
                 break;
-            case LDA_IMMEDIATE_A9:
-                Ins_LDA();
-                break;
             case TAX_AA:
                 Ins_TAX();
-                break;
-            case LDY_ABSOLUTE_AC:
-                Ins_LDY();
-                break;
-            case LDA_ABSOLUTE_AD:
-                Ins_LDA();
-                break;
-            case LDX_ABSOLUTE_AE:
-                Ins_LDX();
                 break;
             default:
                 printf("Unknown opcode [0xA0]: 0x%X\n", opcode);
@@ -3161,34 +3025,24 @@ void CPU6502::EmulateCycle()
                 Ins_BCS();
                 break;
             case LDA_INDIRECTY_B1:
+            case LDA_ZEROPAGEX_B5:
+            case LDA_ABSOLUTEY_B9:
+            case LDA_ABSOLUTEX_BD:
                 Ins_LDA();
                 break;
             case LDY_ZEROPAGEX_B4:
+            case LDY_ABSOLUTEX_BC:
                 Ins_LDY();
                 break;
-            case LDA_ZEROPAGEX_B5:
-                Ins_LDA();
-                break;
             case LDX_ZEROPAGEY_B6:
+            case LDX_ABSOLUTEY_BE:
                 Ins_LDX();
                 break;
             case CLV_B8:
                 Ins_CLV();
                 break;
-            case LDA_ABSOLUTEY_B9:
-                Ins_LDA();
-                break;
             case TSX_BA:
                 Ins_TSX();
-                break;
-            case LDY_ABSOLUTEX_BC:
-                Ins_LDY();
-                break;
-            case LDA_ABSOLUTEX_BD:
-                Ins_LDA();
-                break;
-            case LDX_ABSOLUTEY_BE:
-                Ins_LDX();
                 break;
             default:
                 printf("Unknown opcode [0xB0]: 0x%X\n", opcode);
@@ -3199,40 +3053,28 @@ void CPU6502::EmulateCycle()
             switch (opcode)
             {
             case CPY_IMMEDIATE_C0:
+            case CPY_ZEROPAGE_C4:
+            case CPY_ABSOLUTE_CC:
                 Ins_CPY();
                 break;
             case CMP_INDIRECTX_C1:
+            case CMP_ZEROPAGE_C5:
+            case CMP_IMMEDIATE_C9:
+            case CMP_ABSOLUTE_CD:
                 Ins_CMP();
                 break;
             case NOP_IMMEDIATE_C2:
                 Ins_NOP_IMMEDIATE();
                 break;
-            case CPY_ZEROPAGE_C4:
-                Ins_CPY();
-                break;
-            case CMP_ZEROPAGE_C5:
-                Ins_CMP();
-                break;
             case DEC_ZEROPAGE_C6:
+            case DEC_ABSOLUTE_CE:
                 Ins_DEC();
                 break;
             case INY_C8:
                 Ins_INY();
                 break;
-            case CMP_IMMEDIATE_C9:
-                Ins_CMP();
-                break;
             case DEX_CA:
                 Ins_DEX();
-                break;
-            case CPY_ABSOLUTE_CC:
-                Ins_CPY();
-                break;
-            case CMP_ABSOLUTE_CD:
-                Ins_CMP();
-                break;
-            case DEC_ABSOLUTE_CE:
-                Ins_DEC();
                 break;
             default:
                 printf("Unknown opcode [0xC0]: 0x%X\n", opcode);
@@ -3246,34 +3088,26 @@ void CPU6502::EmulateCycle()
                 Ins_BNE();
                 break;
             case CMP_INDIRECTY_D1:
+            case CMP_ZEROPAGEX_D5:
+            case CMP_ABSOLUTEY_D9:
+            case CMP_ABSOLUTEX_DD:
                 Ins_CMP();
                 break;
             case NOP_ZEROPAGEX_D4:
                 Ins_NOP_ZEROPAGEX();
                 break;
-            case CMP_ZEROPAGEX_D5:
-                Ins_CMP();
-                break;
             case DEC_ZEROPAGEX_D6:
+            case DEC_ABSOLUTEX_DE:
                 Ins_DEC();
                 break;
             case CLD_D8:
                 Ins_CLD();
-                break;
-            case CMP_ABSOLUTEY_D9:
-                Ins_CMP();
                 break;
             case NOP_DA:
                 Ins_NOP();
                 break;
             case NOP_ABSOLUTEX_DC:
                 Ins_NOP_ABSOLUTEX();
-                break;
-            case CMP_ABSOLUTEX_DD:
-                Ins_CMP();
-                break;
-            case DEC_ABSOLUTEX_DE:
-                Ins_DEC();
                 break;
             default:
                 printf("Unknown opcode [0xD0]: 0x%X\n", opcode);
@@ -3284,40 +3118,28 @@ void CPU6502::EmulateCycle()
             switch (opcode)
             {
             case CPX_IMMEDIATE_E0:
+            case CPX_ZEROPAGE_E4:
+            case CPX_ABSOLUTE_EC:
                 Ins_CPX();
                 break;
             case SBC_INDIRECTX_E1:
+            case SBC_ZEROPAGE_E5:
+            case SBC_IMMEDIATE_E9:
+            case SBC_ABSOLUTE_ED:
                 Ins_SBC();
                 break;
             case NOP_IMMEDIATE_E2:
                 Ins_NOP_IMMEDIATE();
                 break;
-            case CPX_ZEROPAGE_E4:
-                Ins_CPX();
-                break;
-            case SBC_ZEROPAGE_E5:
-                Ins_SBC();
-                break;
             case INC_ZEROPAGE_E6:
+            case INC_ABSOLUTE_EE:
                 Ins_INC();
                 break;
             case INX_E8:
                 Ins_INX();
                 break;
-            case SBC_IMMEDIATE_E9:
-                Ins_SBC();
-                break;
             case NOP_EA:
                 Ins_NOP();
-                break;
-            case CPX_ABSOLUTE_EC:
-                Ins_CPX();
-                break;
-            case SBC_ABSOLUTE_ED:
-                Ins_SBC();
-                break;
-            case INC_ABSOLUTE_EE:
-                Ins_INC();
                 break;
             default:
                 printf("Unknown opcode [0xE0]: 0x%X\n", opcode);
@@ -3331,34 +3153,26 @@ void CPU6502::EmulateCycle()
                 Ins_BEQ();
                 break;
             case SBC_INDIRECTY_F1:
+            case SBC_ZEROPAGEX_F5:
+            case SBC_ABSOLUTEY_F9:
+            case SBC_ABSOLUTEX_FD:
                 Ins_SBC();
                 break;
             case NOP_ZEROPAGEX_F4:
                 Ins_NOP_ZEROPAGEX();
                 break;
-            case SBC_ZEROPAGEX_F5:
-                Ins_SBC();
-                break;
             case INC_ZEROPAGEX_F6:
+            case INC_ABSOLUTEX_FE:
                 Ins_INC();
                 break;
             case SED_F8:
                 Ins_SED();
-                break;
-            case SBC_ABSOLUTEY_F9:
-                Ins_SBC();
                 break;
             case NOP_FA:
                 Ins_NOP();
                 break;
             case NOP_ABSOLUTEX_FC:
                 Ins_NOP_ABSOLUTEX();
-                break;
-            case SBC_ABSOLUTEX_FD:
-                Ins_SBC();
-                break;
-            case INC_ABSOLUTEX_FE:
-                Ins_INC();
                 break;
             default:
                 printf("Unknown opcode [0xF0]: 0x%X\n", opcode);
