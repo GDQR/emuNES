@@ -126,6 +126,7 @@ struct CPU6502
     void StoreInCPUMemory(unsigned char value, unsigned short address);
     void Ins_ADC();
     void Ins_AND();
+    void Ope_AND();
     void Ins_ASL();
     void Ope_ASL();
     void Ins_BCC();
@@ -170,7 +171,9 @@ struct CPU6502
     void Ins_PHP();
     void Ins_PLA();
     void Ins_PLP();
+    void Ins_RLA();
     void Ins_ROL();
+    void Ope_ROL();
     void Ins_ROR();
     void Ins_RTI();
     void Ins_RTS();
@@ -196,8 +199,8 @@ struct CPU6502
 const char cycles[256] = {
     7, 6, 0, 8, 2, 3, 5, 5, 3, 2, 2, 0, 4, 4, 6, 6,
     2, 5, 0, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,
-    6, 6, 0, 0, 3, 3, 5, 0, 4, 2, 2, 0, 4, 4, 6, 0,
-    2, 5, 0, 0, 4, 4, 6, 0, 2, 4, 2, 0, 4, 4, 7, 0,
+    6, 6, 0, 8, 3, 3, 5, 5, 4, 2, 2, 0, 4, 4, 6, 6,
+    2, 5, 0, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,
     6, 6, 0, 0, 3, 3, 5, 0, 3, 2, 2, 0, 3, 4, 6, 0,
     2, 5, 0, 0, 4, 4, 6, 0, 2, 4, 2, 0, 4, 4, 7, 0,
     6, 6, 0, 0, 3, 3, 5, 0, 4, 2, 2, 0, 5, 4, 6, 0,

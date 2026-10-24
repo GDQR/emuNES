@@ -328,6 +328,14 @@ enum Opcode
     SLO_ZEROPAGEX_17 = 0X17,
     SLO_ABSOLUTEY_1B = 0X1B,
     SLO_ABSOLUTEX_1F = 0X1F,
+
+    RLA_INDIRECTX_23 = 0X23,
+    RLA_ZEROPAGE_27  = 0X27,
+    RLA_ABSOLUTE_2F  = 0X2F,
+    RLA_INDIRECTY_33 = 0X33,
+    RLA_ZEROPAGEX_37 = 0X37,
+    RLA_ABSOLUTEY_3B = 0X3B,
+    RLA_ABSOLUTEX_3F = 0X3F
 };
 // clang-format on
 
@@ -383,6 +391,7 @@ unsigned char Emulator::MapperFetch(unsigned short address, unsigned char mapper
             return game->PRGROM[address & (game->PRG_Size-1)];
         }
     default:
+        return cpu.dataBus;
         break;
     }
     return 0;
@@ -535,21 +544,10 @@ void CPU6502::AbsoluteReadModWriteIns(){
             isZero(dataBus);
             isNegative(dataBus);
         }else if(opcode == ROL_ABSOLUTE_2E){
-            char carryFuture = 0;
-            if (((dataBus) & 0x80) == 0x80){
-                carryFuture = 1;
-            }
-            dataBus = dataBus << 1;
-            if((statusFlag & CPUFLAGS::CARRY) == CPUFLAGS::CARRY){
-                dataBus |= 1;
-            }
-            if(carryFuture == 1){
-                SetFlag(CARRY);
-            }else{
-                ClearFlag(CARRY);
-            }
-            isZero(dataBus);
-            isNegative(dataBus);
+            Ope_ROL();
+        }else if(opcode == RLA_ABSOLUTE_2F){
+            Ope_ROL();
+            Ope_AND();
         }else if(opcode == ROR_ABSOLUTE_6E){
             char carryFuture = 0; //value bit 0
 
@@ -642,21 +640,10 @@ void CPU6502::ZeroPageReadModWriteIns(){
             isZero(dataBus);
             isNegative(dataBus);
         }else if(opcode == ROL_ZEROPAGE_26){
-            char carryFuture = 0;
-            if (((dataBus) & 0x80) == 0x80){
-                carryFuture = 1;
-            }
-            dataBus = dataBus << 1;
-            if((statusFlag & CPUFLAGS::CARRY) == CPUFLAGS::CARRY){
-                dataBus |= 1;
-            }
-            if(carryFuture == 1){
-                SetFlag(CARRY);
-            }else{
-                ClearFlag(CARRY);
-            }
-            isZero(dataBus);
-            isNegative(dataBus);
+            Ope_ROL();
+        }else if(opcode == RLA_ZEROPAGE_27){
+            Ope_ROL();
+            Ope_AND();
         }else if(opcode == ROR_ZEROPAGE_66){
             char carryFuture = 0; //value bit 0
 
@@ -756,21 +743,10 @@ void CPU6502::ZeroPageXReadModWriteIns() {
             isZero(dataBus);
             isNegative(dataBus);
         }else if(opcode == ROL_ZEROPAGEX_36){
-            char carryFuture = 0;
-            if (((dataBus) & 0x80) == 0x80){
-                carryFuture = 1;
-            }
-            dataBus = dataBus << 1;
-            if((statusFlag & CPUFLAGS::CARRY) == CPUFLAGS::CARRY){
-                dataBus |= 1;
-            }
-            if(carryFuture == 1){
-                SetFlag(CARRY);
-            }else{
-                ClearFlag(CARRY);
-            }
-            isZero(dataBus);
-            isNegative(dataBus);
+            Ope_ROL();
+        }else if(opcode == RLA_ZEROPAGEX_37){
+            Ope_ROL();
+            Ope_AND();
         }else if(opcode == ROR_ZEROPAGEX_76){
             char carryFuture = 0; //value bit 0
             if (((dataBus) & 0x01) == 0x01){
@@ -892,21 +868,10 @@ void CPU6502::AbsoluteXReadModWriteIns() {
             Ope_ASL();
             Ope_ORA();
         }else if(opcode == ROL_ABSOLUTEX_3E){
-            char carryFuture = 0;
-            if (((dataBus) & 0x80) == 0x80){
-                carryFuture = 1;
-            }
-            dataBus = dataBus << 1;
-            if((statusFlag & CPUFLAGS::CARRY) == CPUFLAGS::CARRY){
-                dataBus |= 1;
-            }
-            if(carryFuture == 1){
-                SetFlag(CARRY);
-            }else{
-                ClearFlag(CARRY);
-            }
-            isZero(dataBus);
-            isNegative(dataBus);
+            Ope_ROL();
+        }else if(opcode == RLA_ABSOLUTEX_3F){
+            Ope_ROL();
+            Ope_AND();
         }else if(opcode == LSR_ABSOLUTEX_5E){
             if((dataBus & CPUFLAGS::CARRY) == 0x1){
                 SetFlag(CPUFLAGS::CARRY);
@@ -1020,6 +985,9 @@ void CPU6502::AbsoluteYReadModWriteIns() {
         if(opcode == SLO_ABSOLUTEY_1B){
             Ope_ASL();
             Ope_ORA();
+        }else if(opcode == RLA_ABSOLUTEY_3B){
+            Ope_ROL();
+            Ope_AND();
         }
         cycleCounter++;
     }else if(cycleCounter == 6){
@@ -1096,6 +1064,9 @@ void CPU6502::IndirectXReadModWriteIns() {
         if(opcode == SLO_INDIRECTX_03){
             Ope_ASL();
             Ope_ORA();
+        }else if(opcode == RLA_INDIRECTX_23){
+            Ope_ROL();
+            Ope_AND();
         }
         cycleCounter++;
     }else if(cycleCounter == 7){
@@ -1155,18 +1126,20 @@ void CPU6502::IndirectYReadModWriteIns() {
         dataAddress = emulator.Fetch(pc); // 00bb
         pc++;
     }else if(cycleCounter == 2){
-        dataBus = emulator.Fetch(dataAddress); // xx
+        dataBus = emulator.Fetch((unsigned char) dataAddress); // xx
     }else if(cycleCounter == 3){
         // https://www.nesdev.org/6502_cpu.txt: Indirect indexed addressing
         // Note: The effective address is always fetched from zero page,
         // i.e. the zero page boundary crossing is not handled.
+        // dataAddress+1 == 00bb + 1 == yy
         dataAddress = (emulator.Fetch((unsigned char) (dataAddress+1))<<8) | dataBus; // yyxx
-        dataAddress += registerY; // yyxx + Y
+        // yyxx + Y
+        dataAddress = (unsigned short)((dataAddress & 0xFF00) | ((dataAddress + registerY) & 0xFF));
     }else if(cycleCounter == 4){
-        dataBus = emulator.Fetch(dataAddress);
-        // if(((dataAddress-registerY) & 0xFF00) != (dataAddress & 0xFF00)){
-        //     cycleCounterMax++; // page crossing add 1 cycle
-        // }
+        dataBus = emulator.Fetch(dataAddress); // dummy read
+        if(((dataAddress-registerY) & 0xFF00) != (dataAddress & 0xFF00)){
+            dataAddress += 0X100; // page crossing
+        }
     }else if(cycleCounter == 5){ 
         dataBus = emulator.Fetch(dataAddress);
     }else if(cycleCounter == 6){ 
@@ -1174,6 +1147,9 @@ void CPU6502::IndirectYReadModWriteIns() {
         if(opcode == SLO_INDIRECTY_13){
             Ope_ASL();
             Ope_ORA();
+        }else if(opcode == RLA_INDIRECTY_33){
+            Ope_ROL();
+            Ope_AND();
         }
         cycleCounter++;
     }else if(cycleCounter == 7){ 
@@ -1322,10 +1298,14 @@ void CPU6502::Ins_AND()
     }
 
     if(cycleCounter == cycleCounterMax){
-        accumulator = accumulator & dataBus;
-        isZero(accumulator);
-        isNegative(accumulator);
+        Ope_AND();
     }
+}
+
+void CPU6502::Ope_AND(){
+    accumulator = accumulator & dataBus;
+    isZero(accumulator);
+    isNegative(accumulator);
 }
 
 // CYCLE ACCURACY: ALL
@@ -2230,23 +2210,27 @@ void CPU6502::Ins_PLP(){
     cycleCounter = cycleCounterMax;
 }
 
+void CPU6502::Ins_RLA(){
+    if(opcode == RLA_INDIRECTX_23){
+        IndirectXReadModWriteIns();
+    }else if(opcode == RLA_ZEROPAGE_27){
+        ZeroPageReadModWriteIns();
+    }else if(opcode == RLA_ABSOLUTE_2F){
+        AbsoluteReadModWriteIns();
+    }else if(opcode == RLA_INDIRECTY_33){
+        IndirectYReadModWriteIns();
+    }else if(opcode == RLA_ZEROPAGEX_37){
+        ZeroPageXReadModWriteIns();
+    }else if(opcode == RLA_ABSOLUTEY_3B){
+        AbsoluteYReadModWriteIns();
+    }else if(opcode == RLA_ABSOLUTEX_3F){
+        AbsoluteXReadModWriteIns();
+    }
+}
+
 void CPU6502::Ins_ROL(){
     if(opcode == ROL_ACCUMULATOR_2A){
-        char carryFuture = 0;
-        if (((accumulator) & 0x80) == 0x80){
-            carryFuture = 1;
-        }
-        accumulator = accumulator << 1;
-        if((statusFlag & CPUFLAGS::CARRY) == CPUFLAGS::CARRY){
-            accumulator |= 1;
-        }
-        if(carryFuture == 1){
-            SetFlag(CARRY);
-        }else{
-            ClearFlag(CARRY);
-        }
-        isZero(accumulator);
-        isNegative(accumulator);
+        Ope_ROL();
         cycleCounter++;
     }else if(opcode == ROL_ZEROPAGE_26){
         // max 5 cycles
@@ -2260,6 +2244,42 @@ void CPU6502::Ins_ROL(){
     }else if(opcode == ROL_ABSOLUTEX_3E){
         // max 7 cycles
         AbsoluteXReadModWriteIns();
+    }
+}
+
+void CPU6502::Ope_ROL(){
+    if(opcode != ROL_ACCUMULATOR_2A){
+        char carryFuture = 0;
+        if ((dataBus & 0x80) == 0x80){
+            carryFuture = 1;
+        }
+        dataBus = dataBus << 1;
+        if((statusFlag & CPUFLAGS::CARRY) == CPUFLAGS::CARRY){
+            dataBus |= 1;
+        }
+        if(carryFuture == 1){
+            SetFlag(CARRY);
+        }else{
+            ClearFlag(CARRY);
+        }
+        isZero(dataBus);
+        isNegative(dataBus);
+    }else{
+        char carryFuture = 0;
+        if ((accumulator & 0x80) == 0x80){
+            carryFuture = 1;
+        }
+        accumulator = accumulator << 1;
+        if((statusFlag & CPUFLAGS::CARRY) == CPUFLAGS::CARRY){
+            accumulator |= 1;
+        }
+        if(carryFuture == 1){
+            SetFlag(CARRY);
+        }else{
+            ClearFlag(CARRY);
+        }
+        isZero(accumulator);
+        isNegative(accumulator);
     }
 }
 
@@ -2695,6 +2715,9 @@ void CPU6502::EmulateCycle()
             case AND_INDIRECTX_21:
                 Ins_AND();
                 break;
+            case RLA_INDIRECTX_23:
+                Ins_RLA();
+                break;
             case BIT_ZEROPAGE_24:
                 Ins_BIT();
                 break;
@@ -2703,6 +2726,9 @@ void CPU6502::EmulateCycle()
                 break;
             case ROL_ZEROPAGE_26:
                 Ins_ROL();
+                break;
+            case RLA_ZEROPAGE_27:
+                Ins_RLA();
                 break;
             case PLP_28:
                 Ins_PLP();
@@ -2722,6 +2748,9 @@ void CPU6502::EmulateCycle()
             case ROL_ABSOLUTE_2E:
                 Ins_ROL();
                 break;
+            case RLA_ABSOLUTE_2F:
+                Ins_RLA();
+                break;
             default:
                 printf("Unknown opcode [0x20]: 0x%X\n", opcode);
                 break;
@@ -2736,6 +2765,9 @@ void CPU6502::EmulateCycle()
             case AND_INDIRECTY_31:
                 Ins_AND();
                 break;
+            case RLA_INDIRECTY_33:
+                Ins_RLA();
+                break;
             case NOP_ZEROPAGEX_34:
                 Ins_NOP_ZEROPAGEX();
                 break;
@@ -2744,6 +2776,9 @@ void CPU6502::EmulateCycle()
                 break;
             case ROL_ZEROPAGEX_36:
                 Ins_ROL();
+                break;
+            case RLA_ZEROPAGEX_37:
+                Ins_RLA();
                 break;
             case SEC_38:
                 Ins_SEC();
@@ -2754,6 +2789,9 @@ void CPU6502::EmulateCycle()
             case NOP_3A:
                 Ins_NOP();
                 break;
+            case RLA_ABSOLUTEY_3B:
+                Ins_RLA();
+                break;
             case NOP_ABSOLUTEX_3C:
                 Ins_NOP_ABSOLUTEX();
                 break;
@@ -2762,6 +2800,9 @@ void CPU6502::EmulateCycle()
                 break;
             case ROL_ABSOLUTEX_3E:
                 Ins_ROL();
+                break;
+            case RLA_ABSOLUTEX_3F:
+                Ins_RLA();
                 break;
             default:
                 printf("Unknown opcode [0x30]: 0x%X\n", opcode);
