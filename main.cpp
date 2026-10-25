@@ -1166,6 +1166,72 @@ void CPU6502::IndirectYWriteIns() {
     }
 }
 
+void CPU6502::RelativeAddressing(){
+    static unsigned short pcBranch;
+    if(cycleCounter == 1){
+        dataBus = emulator.Fetch(pc);
+        pc++;
+        if(opcode == BPL_RELATIVE_10){
+            // If the negative flag is clear GO TO ADDRESS
+            if((statusFlag & CPUFLAGS::NEGATIVE) == 0){
+                cycleCounterMax++;
+            }
+        }else if(opcode == BMI_RELATIVE_30){
+            if((statusFlag & CPUFLAGS::NEGATIVE) == NEGATIVE){
+                cycleCounterMax++; // NEGATIVE flag is set
+            }
+        }else if(opcode == BVC_RELATIVE_50){
+            if((statusFlag & CPUFLAGS::OVERFLOW) == 0){
+                cycleCounterMax++; // OVERFLOW flag is clear
+            }
+        }else if(opcode == BVS_RELATIVE_70){
+            if((statusFlag & CPUFLAGS::OVERFLOW) == CPUFLAGS::OVERFLOW){
+                cycleCounterMax++; // OVERFLOW flag is set
+            }
+        }else if(opcode == BCC_RELATIVE_90){
+            if((statusFlag & CPUFLAGS::CARRY) == 0){
+                cycleCounterMax += 1; // Carry flag is clear
+            }
+        }else if(opcode == BCS_RELATIVE_B0){
+            if((statusFlag & CPUFLAGS::CARRY) == CPUFLAGS::CARRY){
+                cycleCounterMax += 1; // Carry flag is set
+            }
+        }else if(opcode == BNE_RELATIVE_D0){
+            if((statusFlag & CPUFLAGS::ZERO) == 0){
+                cycleCounterMax += 1; // Zero flag is clear
+            }
+        }else if(opcode == BEQ_RELATIVE_F0){
+            if((statusFlag & CPUFLAGS::ZERO) == CPUFLAGS::ZERO){
+                cycleCounterMax += 1; // Zero flag is set
+            }
+        }
+    }else if(cycleCounter == 2){
+        // dataAddress = pc;
+        if(dataBus >= 0x80){
+            // is negative
+            pcBranch = pc - (256-dataBus);
+        }else{
+            pcBranch = pc + dataBus;
+        }
+
+        pc = (unsigned short)((pc & 0xFF00) | (unsigned char)((pc) + dataBus));
+                                
+        if((pc & 0xFF00) != (pcBranch & 0xFF00)){
+            cycleCounterMax++; // page crossing add 1 cycle
+        }else{
+            pc = pcBranch;
+        }
+
+        dataBus = emulator.Fetch(pc); // dummy read need to be here?
+    }else if(cycleCounter == 3){
+        // DO IRQ
+        dataBus = emulator.Fetch(pc); // dummy read
+        // pc = pcBranch;
+        
+        pc = (unsigned short)((pc & 0xFF) | (pcBranch & 0xFF00));
+    }
+}
+
 void CPU6502::SetFlag(CPUFLAGS insertFlag)
 {
     statusFlag |= insertFlag;
@@ -1337,99 +1403,15 @@ void CPU6502::Ope_ASL(){
 }
 
 void CPU6502::Ins_BCC() {
-    if(cycleCounter == 1){
-        // cycle 2
-        dataBus = emulator.Fetch(pc);
-        pc++;
-        if((statusFlag & CPUFLAGS::CARRY) == 0){
-            cycleCounterMax += 1; // Carry flag is clear
-        }
-    }else if(cycleCounter == 2){
-        // cycle 3
-        unsigned short pcBranch;
-
-        if(dataBus >= 0x80){
-            // is negative
-            pcBranch = pc - (256-dataBus);
-        }else{
-            pcBranch = pc + dataBus;
-        }
-
-        if((pc & 0xFF00) != (pcBranch & 0xFF00)){
-            cycleCounterMax++; // page crossing add 1 cycle
-        }
-
-        pc = pcBranch;
-        cycleCounter++;
-    }else if(cycleCounter == 3){
-        //cycle 4
-        // DO IRQ
-        emulator.Fetch(pc); // dummy read
-    }
+    RelativeAddressing();
 }
 
 void CPU6502::Ins_BCS() {
-    if(cycleCounter == 1){
-        // cycle 2
-        dataBus = emulator.Fetch(pc);
-        pc++;
-        if((statusFlag & CPUFLAGS::CARRY) == CPUFLAGS::CARRY){
-            cycleCounterMax += 1; // Carry flag is set
-        }
-    }else if(cycleCounter == 2){
-        // cycle 3
-        unsigned short pcBranch;
-
-        if(dataBus >= 0x80){
-            // is negative
-            pcBranch = pc - (256-dataBus);
-        }else{
-            pcBranch = pc + dataBus;
-        }
-
-        if((pc & 0xFF00) != (pcBranch & 0xFF00)){
-            cycleCounterMax++; // page crossing add 1 cycle
-        }
-
-        pc = pcBranch;
-        cycleCounter++;
-    }else if(cycleCounter == 3){
-        //cycle 4
-        // DO IRQ
-        emulator.Fetch(pc); // dummy read
-    }
+    RelativeAddressing();
 }
 
 void CPU6502::Ins_BEQ() {
-    if (cycleCounter == 1){
-        // cycle 2
-        dataBus = emulator.Fetch(pc);
-        pc++;
-        if((statusFlag & CPUFLAGS::ZERO) == CPUFLAGS::ZERO){
-            cycleCounterMax += 1; // Zero flag is set
-        }
-    } else if(cycleCounter == 2){
-        // cycle 3
-        unsigned short pcBranch;
-
-        if(dataBus >= 0x80){
-            // is negative
-            pcBranch = pc - (256-dataBus);
-        }else{
-            pcBranch = pc + dataBus;
-        }
-
-        if((pc & 0xFF00) != (pcBranch & 0xFF00)){
-            cycleCounterMax++; // page crossing add 1 cycle
-        }
-
-        pc = pcBranch;
-        cycleCounter++;
-    }else if(cycleCounter == 3){
-        //cycle 4
-        // DO IRQ
-        emulator.Fetch(pc); // dummy read
-    }
+    RelativeAddressing();
 }
 
 //CYCLE ACCURACY: ALL
@@ -1464,91 +1446,15 @@ void CPU6502::Ins_BIT() {
 }
 
 void CPU6502::Ins_BMI(){
-    if(cycleCounter == 1){
-        dataBus = emulator.Fetch(pc);
-        pc++;
-        if((statusFlag & CPUFLAGS::NEGATIVE) == NEGATIVE){
-            cycleCounterMax++; // NEGATIVE flag is set
-        }
-    }else if(cycleCounter == 2){
-        // cycle 3
-        unsigned short pcBranch;
-
-        if(dataBus >= 0x80){
-            // is negative
-            pcBranch = pc - (256-dataBus);
-        }else{
-            pcBranch = pc + dataBus;
-        }
-
-        if((pc & 0xFF00) != (pcBranch & 0xFF00)){
-            cycleCounterMax++; // page crossing add 1 cycle
-        }
-
-        pc = pcBranch;
-        cycleCounter++;
-    }else if(cycleCounter == 3){
-        //cycle 4
-        // DO IRQ
-        emulator.Fetch(pc); // dummy read
-    }
+    RelativeAddressing();
 }
 
 void CPU6502::Ins_BNE() {
-    if(cycleCounter == 1){
-        dataBus = emulator.Fetch(pc);
-        pc++;
-        if((statusFlag & CPUFLAGS::ZERO) == 0){
-            cycleCounterMax++; // Zero flag is clear
-        }
-    }else if(cycleCounter == 2){
-        unsigned short pcBranch;
-        if(dataBus >= 0x80){
-            pcBranch = pc - (256-dataBus);
-        }else{
-            pcBranch = pc + dataBus;
-        }
-
-        if((pc & 0xFF00) != (pcBranch & 0xFF00)){
-            cycleCounterMax++; // page crossing add 1 cycle
-        }
-
-        pc = pcBranch;
-        cycleCounter++;
-    }else if (cycleCounter == 3){
-        //cycle 4
-        // DO IRQ
-        emulator.Fetch(pc); // dummy read
-    }
+    RelativeAddressing();
 }
 
 void CPU6502::Ins_BPL() {
-    if(cycleCounter == 1){
-        dataBus = emulator.Fetch(pc);
-        pc++;
-        // If the negative flag is clear GO TO ADDRESS
-        if((statusFlag & CPUFLAGS::NEGATIVE) == 0){
-            cycleCounterMax++;
-        }
-    }else if(cycleCounter == 2){
-        unsigned short pcBranch;
-        if(dataBus >= 0x80){
-            // is negative
-            pcBranch = pc - (256-dataBus);
-        }else{
-            pcBranch = pc + dataBus;
-        }
-
-        if((pc & 0xFF00) != (pcBranch & 0xFF00)){
-            cycleCounterMax++; // page crossing add 1 cycle
-        }
-
-        pc = pcBranch;
-        cycleCounter++;
-    }else if(cycleCounter == 3){
-        // DO IRQ
-        emulator.Fetch(pc); // dummy read
-    }
+    RelativeAddressing();
 }
 
 void CPU6502::Ins_BRK() {
@@ -1606,50 +1512,11 @@ void CPU6502::Ins_BRK() {
 }
 
 void CPU6502::Ins_BVC() {
-    if((statusFlag & CPUFLAGS::OVERFLOW) == 0){
-        unsigned char goToAddress = emulator.Fetch(pc);
-        pc++;
-        if(goToAddress >= 0x80){
-            // is negative
-            pc -= (256-goToAddress);
-        }else{
-            pc += goToAddress;
-        }
-        cycleCounterMax++;
-    }else{
-        pc++;
-        cycleCounterMax += 2;
-    }
-
-    printf("NOT WORK OPCODE: 0x%X\n",opcode);
-    while (true)
-    {
-        /* code */
-    }
+    RelativeAddressing();
 }
 
 void CPU6502::Ins_BVS() {
-    if((statusFlag & CPUFLAGS::OVERFLOW) == CPUFLAGS::OVERFLOW){
-        unsigned char goToAddress = emulator.Fetch(pc);
-        pc++;
-        if(goToAddress >= 0x80){
-            // is negative
-            pc -= (256-goToAddress);
-        }else{
-            pc += goToAddress;
-        }
-        cycleCounterMax++;
-    }else{
-        pc++;
-        cycleCounterMax += 2;
-    }
-
-    printf("NOT WORK OPCODE: 0x%X\n",opcode);
-    while (true)
-    {
-        /* code */
-    }
-
+    RelativeAddressing();
 }
 
 void CPU6502::Ins_CLC(){

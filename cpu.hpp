@@ -123,6 +123,7 @@ struct CPU6502
     void IndirectYReadIns();
     void IndirectYReadModWriteIns();
     void IndirectYWriteIns();
+    void RelativeAddressing();
     void StoreInCPUMemory(unsigned char value, unsigned short address);
     void Ins_ADC();
     void Ope_ADC();
