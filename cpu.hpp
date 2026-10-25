@@ -125,6 +125,7 @@ struct CPU6502
     void IndirectYWriteIns();
     void StoreInCPUMemory(unsigned char value, unsigned short address);
     void Ins_ADC();
+    void Ope_ADC();
     void Ins_AND();
     void Ope_AND();
     void Ins_ASL();
@@ -174,9 +175,11 @@ struct CPU6502
     void Ins_PLA();
     void Ins_PLP();
     void Ins_RLA();
+    void Ins_RRA();
     void Ins_ROL();
     void Ope_ROL();
     void Ins_ROR();
+    void Ope_ROR();
     void Ins_RTI();
     void Ins_RTS();
     void Ins_SBC();
@@ -206,8 +209,8 @@ const char cycles[256] = {
     2, 5, 0, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,
     6, 6, 0, 8, 3, 3, 5, 5, 3, 2, 2, 0, 3, 4, 6, 6,
     2, 5, 0, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,
-    6, 6, 0, 0, 3, 3, 5, 0, 4, 2, 2, 0, 5, 4, 6, 0,
-    2, 5, 0, 0, 4, 4, 6, 0, 2, 4, 2, 0, 4, 4, 7, 0,
+    6, 6, 0, 8, 3, 3, 5, 5, 4, 2, 2, 0, 5, 4, 6, 6,
+    2, 5, 0, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,
     2, 6, 2, 0, 3, 3, 3, 0, 2, 2, 2, 0, 4, 4, 4, 0,
     2, 6, 0, 0, 4, 4, 4, 0, 2, 5, 2, 0, 0, 5, 0, 0,
     2, 6, 2, 0, 3, 3, 3, 0, 2, 2, 2, 0, 4, 4, 4, 0,
