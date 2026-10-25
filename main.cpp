@@ -1940,6 +1940,29 @@ void CPU6502::Ins_JSR()
         dataBus = emulator.Fetch(pc);
         pc = (unsigned short)((dataBus << 8) | sp);
         sp = (unsigned char) dataAddress;
+
+void CPU6502::Ins_LAX(){
+    if(opcode == LAX_INDIRECTX_A3){
+        IndirectXReadIns();
+    }else if(opcode == LAX_ZEROPAGE_A7){
+        ZeroPageReadIns();
+    }else if(opcode == LAX_ABSOLUTE_AF){
+        AbsoluteReadIns();
+    }else if(opcode == LAX_INDIRECTY_B3){
+        IndirectYReadIns();
+    }else if(opcode == LAX_ZEROPAGEY_B7){
+        ZeroPageYReadIns();
+    }else if(opcode == LAX_ABSOLUTEY_BF){
+        AbsoluteYReadIns();
+    }
+
+    if(cycleCounter == cycleCounterMax){
+        accumulator = dataBus;
+        isZero(accumulator);
+        isNegative(accumulator);
+        registerX = accumulator;
+        isZero(registerX);
+        isNegative(registerX);
     }
 }
 
@@ -3064,6 +3087,11 @@ void CPU6502::EmulateCycle()
             case LDX_ABSOLUTE_AE:
                 Ins_LDX();
                 break;
+            case LAX_INDIRECTX_A3:
+            case LAX_ZEROPAGE_A7:
+            case LAX_ABSOLUTE_AF:
+                Ins_LAX();
+                break;
             case TAY_A8:
                 Ins_TAY();
                 break;
@@ -3086,6 +3114,11 @@ void CPU6502::EmulateCycle()
             case LDA_ABSOLUTEY_B9:
             case LDA_ABSOLUTEX_BD:
                 Ins_LDA();
+                break;
+            case LAX_INDIRECTY_B3:
+            case LAX_ZEROPAGEY_B7:
+            case LAX_ABSOLUTEY_BF:
+                Ins_LAX();
                 break;
             case LDY_ZEROPAGEX_B4:
             case LDY_ABSOLUTEX_BC:
