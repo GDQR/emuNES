@@ -275,12 +275,26 @@ void APU::Store(unsigned char value, unsigned short address){
       pulse1[3] = value;
       timerPulse1 = ((pulse1[3] & 7) << 8) | pulse1[2];  
     break;
+  case 0x4010:
+      DMC[0] = value;
+      if((DMC[0] & 0x80) == 0x80){
+        emulator.cpu.irqLine = true;
+      }else{
+        emulator.cpu.irqLine = false;
+      }
+    break;
   case 0x4015:
     status = value & 0x1F;
+    emulator.cpu.irqLine = false;
     break;
   case 0x4017:
     frameCounter = value & 0xC0;
-    break;
+    if((frameCounter & 0x40) != 0){
+      emulator.cpu.irqLine = false;
+    }else{
+      emulator.cpu.irqLine = true;
+    }
+  break;
   default:
     break;
   }

@@ -85,8 +85,9 @@ struct CPU6502
     unsigned char registerY;
     unsigned char statusFlag;
     bool stopNMIinstruction = false; // This active the nmi operator once
-    bool nmi; // This is active all the cycles of the operation 
-    bool irq;
+    bool nmi; // This is active all the cycles of the operation
+    bool irq = false;
+    bool irqLine = false;
     bool DMAactive = false;
     unsigned char DMAAddress;
     unsigned char DMAPage;
@@ -125,6 +126,7 @@ struct CPU6502
     void IndirectYWriteIns();
     void RelativeAddressing();
     void StoreInCPUMemory(unsigned char value, unsigned short address);
+    void CheckInterrupts();
     void Ins_ADC();
     void Ope_ADC();
     void Ins_AND();
@@ -366,10 +368,10 @@ public:
 class APU{
 public:
     unsigned char pulse1[4];
-    unsigned char pulse2[4];
-    unsigned char triangle[4];
-    unsigned char noise[4];
-    unsigned char DMC[4];
+    unsigned char pulse2[4]; //
+    unsigned char triangle[4]; // 0x4008- 0x400B
+    unsigned char noise[4]; // 0x400C- 0x400F
+    unsigned char DMC[4]; // 0x4010- 0x4013
     unsigned char status;
     unsigned char frameCounter;
     unsigned char sequencePulse1;

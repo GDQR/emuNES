@@ -527,6 +527,12 @@ void CPU6502::StoreInCPUMemory(unsigned char value, unsigned short address)
     }
 }
 
+void CPU6502::CheckInterrupts(){
+    if(irqLine && (statusFlag & CPUFLAGS::INTERRUPT_DISABLE) == 0){
+        irq = true;
+    }
+}
+
 // (LDA, LDX, LDY, EOR, AND, ORA, ADC, SBC, CMP, BIT, LAX, NOP)
 void CPU6502::AbsoluteReadIns(){
     if(cycleCounter == 1){
@@ -1482,6 +1488,31 @@ void CPU6502::Ins_BRK() {
         }else if(cycleCounter == 6){
             pc = (unsigned short)((pc & 0x00FF) | (emulator.Fetch(0xFFFB) << 8));
             nmi = false;
+            // printf("nmi true\n");
+            SetFlag(CPUFLAGS::INTERRUPT_DISABLE);
+        }
+    }else if(irq == true){
+        if(cycleCounter == 1){
+            dataBus = emulator.Fetch(pc); // dummy read
+        }else if(cycleCounter == 2){
+            StoreInCPUMemory((unsigned char)(pc>>8),(unsigned short)(0x100 + sp));
+            sp--;
+            cycleCounter++;
+        }else if(cycleCounter == 3){
+            StoreInCPUMemory((unsigned char)(pc),(unsigned short)(0x100 + sp));
+            sp--;
+            cycleCounter++;
+        }else if(cycleCounter == 4){
+            ClearFlag(CPUFLAGS::B_FLAG); // clear only in IRQ
+            StoreInCPUMemory(statusFlag,(unsigned short)(0x100 + sp));
+            sp--;
+            cycleCounter++;
+        }else if(cycleCounter == 5){
+            pc = (unsigned short)((pc & 0xFF00) | (emulator.Fetch(0xFFFE)));            
+        }else if(cycleCounter == 6){
+            pc = (unsigned short)((pc & 0x00FF) | (emulator.Fetch(0xFFFF) << 8));
+            irq = false;
+            // printf("nmi true\n");
             SetFlag(CPUFLAGS::INTERRUPT_DISABLE);
         }
     }else if(nmi == false){
@@ -2070,7 +2101,8 @@ void CPU6502::Ins_PHP(){
     if(cycleCounter == 1){
         emulator.Fetch(pc); // dummy read
     }else if(cycleCounter == 2){
-        statusFlag |= CPUFLAGS::B_FLAG;
+        SetFlag(CPUFLAGS::B_FLAG);
+        statusFlag |= 0x20;
         StoreInCPUMemory(statusFlag,(unsigned short)(0x100 + sp));
         sp--;
         cycleCounter++;
@@ -2551,6 +2583,9 @@ void CPU6502::EmulateCycle()
             opcode = BRK_00;
             cycleCounter++;
             // printf("interruput opcode: 0x%X\n",opcode);
+        }else if(irq == true){
+            opcode = BRK_00;
+            cycleCounter++;
         }else{
             if(cycleCounterMax != cycleCounter && cycleCounter != 0){
                 printf("no es cycle perfer\n");
@@ -3156,6 +3191,7 @@ void CPU6502::EmulateCycle()
         while (true){}
     }
     if(cycleCounter == cycleCounterMax){
+        CheckInterrupts();
         cycleCounter = 0;
     }
     if(cycleCounter > cycleCounterMax){
