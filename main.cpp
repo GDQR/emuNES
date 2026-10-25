@@ -606,9 +606,9 @@ void CPU6502::AbsoluteWriteIns(){
            StoreInCPUMemory(registerX,dataAddress);
         }else if(opcode == STY_ABSOLUTE_8C){
            StoreInCPUMemory(registerY,dataAddress);
-        }/*else if(opcode == SAX){
-           StoreInCPUMemory(accumulator,dataAddress);
-        }*/
+        }else if(opcode == SAX_ABSOLUTE_8F){
+            StoreInCPUMemory((accumulator & registerX), dataAddress);
+        }
         cycleCounter++;
     }
 }
@@ -680,6 +680,8 @@ void CPU6502::ZeroPageWriteIns(){
             StoreInCPUMemory(registerX,dataAddress);
         }else if(opcode == STY_ZEROPAGE_84){
             StoreInCPUMemory(registerY,dataAddress);
+        }else if(opcode == SAX_ZEROPAGE_87){
+            StoreInCPUMemory((accumulator & registerX), dataAddress);
         }
         cycleCounter++;
     }
@@ -785,6 +787,8 @@ void CPU6502::ZeroPageYWriteIns() {
     }else if(cycleCounter == 3){
         if(opcode == STX_ZEROPAGEY_96){
             StoreInCPUMemory(registerX,dataAddress);
+        }else if(opcode == SAX_ZEROPAGEY_97){
+            StoreInCPUMemory((accumulator & registerX), dataAddress);
         }
         cycleCounter++;
     }
@@ -1060,6 +1064,8 @@ void CPU6502::IndirectXWriteIns() {
     }else if(cycleCounter == 5){
         if(opcode == STA_INDIRECTX_81){
             StoreInCPUMemory(accumulator, dataAddress);
+        }else if(opcode == SAX_INDIRECTX_83){
+            StoreInCPUMemory((accumulator & registerX), dataAddress);
         }
         cycleCounter++;
     }
@@ -2403,6 +2409,16 @@ void CPU6502::Ins_RTS() {
         sp = (unsigned char)dataAddress;
         pc++;
         cycleCounter++;
+
+void CPU6502::Ins_SAX(){
+    if(opcode == SAX_INDIRECTX_83){
+        IndirectXWriteIns();
+    }else if(opcode == SAX_ZEROPAGE_87){
+        ZeroPageWriteIns();
+    }else if(opcode == SAX_ABSOLUTE_8F){
+        AbsoluteWriteIns();
+    }else if(opcode == SAX_ZEROPAGEY_97){
+        ZeroPageYWriteIns();
     }
 }
 
@@ -2973,6 +2989,11 @@ void CPU6502::EmulateCycle()
             case STA_ABSOLUTE_8D:
                 Ins_STA();
                 break;
+            case SAX_INDIRECTX_83:
+            case SAX_ZEROPAGE_87:
+            case SAX_ABSOLUTE_8F:
+                Ins_SAX();
+                break;
             case STY_ZEROPAGE_84:
             case STY_ABSOLUTE_8C:
                 Ins_STY();
@@ -3009,6 +3030,9 @@ void CPU6502::EmulateCycle()
                 break;
             case STX_ZEROPAGEY_96:
                 Ins_STX();
+                break;
+            case SAX_ZEROPAGEY_97:
+                Ins_SAX();
                 break;
             case TYA_98:
                 Ins_TYA();
