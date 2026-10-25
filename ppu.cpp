@@ -296,7 +296,7 @@ void PPU::EmulateCycle(){
         // empieza el dibujo
 
         // render pixel
-        if(scanlineDot >= 2 && scanlineDot <=257){
+        if(scanlineDot >= 2 && scanlineDot <=259){
             if((ppumask & PPU_FLAGS::BACKGROUND_ENABLE_BIT_3) == BACKGROUND_ENABLE_BIT_3
                 || (ppumask & PPU_FLAGS::SPRITE_ENABLE_BIT_4) == SPRITE_ENABLE_BIT_4){
 
