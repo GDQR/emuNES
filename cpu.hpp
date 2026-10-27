@@ -363,6 +363,7 @@ public:
     unsigned char controllerShiftRegister1 = 0;
     unsigned char controllerShiftRegister2 = 0;
     unsigned char shiftCounter1 = 0;
+    unsigned char shiftCounter2 = 0;
 };
 
 class APU{

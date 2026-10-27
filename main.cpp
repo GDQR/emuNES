@@ -443,16 +443,19 @@ unsigned char Emulator::Fetch(unsigned short address){
             return ppu.ppuBus;
         }else if(address == SECTIONS6502::PPUSTATUS){ // 0x2002
             data = ppu.ppustatus + (ppu.ppuBus & 0x1F) ; // only need bit 0 to bit 5 of PPUBus
+            ppu.ppuBus = data;
             ppu.ClearFlag(SECTIONS6502::PPUSTATUS, PPU_FLAGS::PPU_VBLANK);
             ppu.registerW = false; // clear register
             return data;
         }else if(address == SECTIONS6502::OAMADDR){ // 0x2003 Write only
             return ppu.ppuBus;
         }else if(address == SECTIONS6502::OAMDATA){ // 0x2004
-            // data = ReadOAM();
+            data = ppu.oam1[ppu.oamaddr];
             printf("readOAMDATA\n");
-            while (true){}
-
+            // https://www.nesdev.org/wiki/Open_bus_behavior: PPU open bus
+            // Reading a value from $2004 or $2007 loads a byte from OAM,
+            // video memory, or the palette onto this bus. 
+            ppu.ppuBus = data;
             return data;
         }else if(address == SECTIONS6502::PPUSCROLL){ // 0x2005 Write only
             return ppu.ppuBus;
@@ -489,12 +492,21 @@ unsigned char Emulator::Fetch(unsigned short address){
             cpu.cycleCounter++;
             return inputData;
         }else if(address == 0x4017){
+            unsigned char inputData = ((controller.controllerShiftRegister2 & 0x80)>>7) | (cpu.dataBus & 0xE0);
+            controller.shiftCounter2 = 2;
+            controller.controllerStopRead = false;
+            emulator.cpu.dataBus = inputData;
+            cpu.cycleCounter++;
+            return inputData;
         }else{
             // printf("APU, DMC\n");
             // printf("not more, PC: 0x%X\n",emulator.cpu.pc);
             // while (true)
             // {
             // }
+            
+            cpu.cycleCounter++;
+            return cpu.dataBus;
         }
         cpu.cycleCounter++;
     }else {
@@ -515,8 +527,10 @@ void CPU6502::StoreInCPUMemory(unsigned char value, unsigned short address)
         // $2000 through $3FFF writes to the PPU registers
         emulator.ppu.StoreInPPU(value, address);
     }else if((address >= 0x4000 && address <= 0x4013) || address == 0x4015 || address == 0x4017){
+        dataBus = value;
         emulator.apu.Store(value, address); // APU registers
     }else if(address == 0x4014){ // OAMDMA WRITE
+        dataBus = value;
         emulator.ppu.StoreInPPU(value, address);
         DMAactive = true;
     }else if(address == 0x4016){
