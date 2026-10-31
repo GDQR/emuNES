@@ -2142,12 +2142,15 @@ void CPU6502::Ins_PLA() {
 // Pull processor status from stack
 void CPU6502::Ins_PLP(){
     // max 4 cycles
-    emulator.Fetch(pc); // dummy read
-    sp++;
-    dataAddress = (unsigned short)(0x100 | sp);
-    statusFlag = emulator.Fetch(dataAddress);
-
-    cycleCounter = cycleCounterMax;
+    if(cycleCounter == 1){
+        emulator.Fetch(pc); // dummy read
+    }else if(cycleCounter == 2){
+        sp++;
+        cycleCounter++;
+    }else if(cycleCounter == 3){
+        dataAddress = (unsigned short)(0x100 | sp);
+        statusFlag = emulator.Fetch(dataAddress);
+    }
 }
 
 void CPU6502::Ins_RLA(){
