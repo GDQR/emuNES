@@ -363,7 +363,15 @@ enum Opcode
     LAX_ABSOLUTE_AF = 0XAF,
     LAX_INDIRECTY_B3 = 0XB3,
     LAX_ZEROPAGEY_B7 = 0XB7,
-    LAX_ABSOLUTEY_BF = 0XBF
+    LAX_ABSOLUTEY_BF = 0XBF,
+
+    DCP_INDIRECTX_C3 = 0XC3,
+    DCP_ZEROPAGE_C7 = 0XC7,
+    DCP_ABSOLUTE_CF = 0XCF,
+    DCP_INDIRECTY_D3 = 0XD3,
+    DCP_ZEROPAGEX_D7 = 0XD7,
+    DCP_ABSOLUTEY_DB = 0XDB,
+    DCP_ABSOLUTEX_DF = 0XDF
 };
 // clang-format on
 
@@ -600,9 +608,10 @@ void CPU6502::AbsoluteReadModWriteIns(){
             isZero(dataBus);
             isNegative(dataBus);
         }else if(opcode == DEC_ABSOLUTE_CE){
-            dataBus--;
-            isZero(dataBus);
-            isNegative(dataBus);
+            Ope_DEC();
+        }else if(opcode == DCP_ABSOLUTE_CF){
+            Ope_DEC();
+            Ope_CMP();
         }
         cycleCounter++;
     }else if(cycleCounter == 5){
@@ -677,9 +686,10 @@ void CPU6502::ZeroPageReadModWriteIns(){
             isZero(dataBus);
             isNegative(dataBus);
         }else if(opcode == DEC_ZEROPAGE_C6){
-            dataBus--;
-            isZero(dataBus);
-            isNegative(dataBus);
+            Ope_DEC();
+        }else if(opcode == DCP_ZEROPAGE_C7){
+            Ope_DEC();
+            Ope_CMP();
         }
         cycleCounter++;
     }else if(cycleCounter == 4){
@@ -751,9 +761,10 @@ void CPU6502::ZeroPageXReadModWriteIns() {
             Ope_ROR();
             Ope_ADC();
         }else if(opcode == DEC_ZEROPAGEX_D6){
-            dataBus--;
-            isZero(dataBus);
-            isNegative(dataBus);
+            Ope_DEC();
+        }else if(opcode == DCP_ZEROPAGEX_D7){
+            Ope_DEC();
+            Ope_CMP();
         }else if(opcode == INC_ZEROPAGEX_F6){
             dataBus++;
             isZero(dataBus);
@@ -795,7 +806,27 @@ void CPU6502::ZeroPageYReadIns() {
     }
 }
 
-void CPU6502::ZeroPageYReadModWriteIns() {}
+void CPU6502::ZeroPageYReadModWriteIns() {
+    // if(cycleCounter == 1){
+    //     dataAddress = emulator.Fetch(pc);
+    //     pc++;
+    // }else if(cycleCounter == 2){
+    //     dataBus = emulator.Fetch(dataAddress); // Dummy read
+    //     dataAddress = (unsigned char) (dataAddress + registerY);
+    // }else if(cycleCounter == 3){
+    //     dataBus = emulator.Fetch(dataAddress);
+    // }else if(cycleCounter == 4){
+    //     StoreInCPUMemory(dataBus, dataAddress); // Dummy Write
+    //     if(opcode == DCP_ZEROPAGEY_D7){
+    //         Ope_DEC();
+    //         Ope_CMP();
+    //     }
+    //     cycleCounter++;
+    // }else if(cycleCounter == 5){
+    //     StoreInCPUMemory(dataBus, dataAddress);
+    //     cycleCounter++;
+    // }
+}
 
 void CPU6502::ZeroPageYWriteIns() {
     if(cycleCounter == 1){
@@ -879,9 +910,10 @@ void CPU6502::AbsoluteXReadModWriteIns() {
             Ope_ROR();
             Ope_ADC();
         }else if(opcode == DEC_ABSOLUTEX_DE){
-            dataBus--;
-            isZero(dataBus);
-            isNegative(dataBus);
+            Ope_DEC();
+        }else if(opcode == DCP_ABSOLUTEX_DF){
+            Ope_DEC();
+            Ope_CMP();
         }else if(opcode == INC_ABSOLUTEX_FE){
             dataBus++;
             isZero(dataBus);
@@ -973,6 +1005,9 @@ void CPU6502::AbsoluteYReadModWriteIns() {
         }else if(opcode == RRA_ABSOLUTEY_7B){
             Ope_ROR();
             Ope_ADC();
+        }else if(opcode == DCP_ABSOLUTEY_DB){
+            Ope_DEC();
+            Ope_CMP();
         }
         cycleCounter++;
     }else if(cycleCounter == 6){
@@ -1058,6 +1093,9 @@ void CPU6502::IndirectXReadModWriteIns() {
         }else if(opcode == RRA_INDIRECTX_63){
             Ope_ROR();
             Ope_ADC();
+        }else if(opcode == DCP_INDIRECTX_C3){
+            Ope_DEC();
+            Ope_CMP();
         }
         cycleCounter++;
     }else if(cycleCounter == 7){
@@ -1149,6 +1187,9 @@ void CPU6502::IndirectYReadModWriteIns() {
         }else if(opcode == RRA_INDIRECTY_73){
             Ope_ROR();
             Ope_ADC();
+        }else if(opcode == DCP_INDIRECTY_D3){
+            Ope_DEC();
+            Ope_CMP();
         }
         cycleCounter++;
     }else if(cycleCounter == 7){ 
@@ -1616,18 +1657,22 @@ void CPU6502::Ins_CMP() {
     }
 
     if(cycleCounter == cycleCounterMax){
-        if(accumulator >= dataBus){
-            SetFlag(CPUFLAGS::CARRY);
-        }else{
-            ClearFlag(CPUFLAGS::CARRY);
-        }
-        if(accumulator == dataBus){
-            SetFlag(CPUFLAGS::ZERO);
-        }else{
-            ClearFlag(CPUFLAGS::ZERO);
-        }
-        isNegative((unsigned char)(accumulator-dataBus));
+        Ope_CMP();
     }
+}
+
+void CPU6502::Ope_CMP(){
+    if(accumulator >= dataBus){
+        SetFlag(CPUFLAGS::CARRY);
+    }else{
+        ClearFlag(CPUFLAGS::CARRY);
+    }
+    if(accumulator == dataBus){
+        SetFlag(CPUFLAGS::ZERO);
+    }else{
+        ClearFlag(CPUFLAGS::ZERO);
+    }
+    isNegative((unsigned char)(accumulator-dataBus));
 }
 
 void CPU6502::Ins_CPX() {
@@ -1687,6 +1732,24 @@ void CPU6502::Ins_CPY() {
     }
 }
 
+void CPU6502::Ins_DCP(){
+    if(opcode == DCP_INDIRECTX_C3){
+        IndirectXReadModWriteIns();
+    }else if(opcode == DCP_ZEROPAGE_C7){
+        ZeroPageReadModWriteIns();
+    }else if(opcode == DCP_ABSOLUTE_CF){
+        AbsoluteReadModWriteIns();
+    }else if(opcode == DCP_INDIRECTY_D3){
+        IndirectYReadModWriteIns();
+    }else if(opcode == DCP_ZEROPAGEX_D7){
+        ZeroPageXReadModWriteIns();
+    }else if(opcode == DCP_ABSOLUTEY_DB){
+        AbsoluteYReadModWriteIns();
+    }else if(opcode == DCP_ABSOLUTEX_DF){
+        AbsoluteXReadModWriteIns();
+    }
+}
+
 //CYCLE ACCURACY: ALL
 void CPU6502::Ins_DEC() {
     if(opcode == DEC_ZEROPAGE_C6){
@@ -1702,6 +1765,12 @@ void CPU6502::Ins_DEC() {
         // max cycle 7
         AbsoluteXReadModWriteIns();
     }
+}
+
+void CPU6502::Ope_DEC(){
+    dataBus--;
+    isZero(dataBus);
+    isNegative(dataBus);
 }
 
 void CPU6502::Ins_DEX() {
@@ -3075,6 +3144,11 @@ void CPU6502::EmulateCycle()
             case NOP_IMMEDIATE_C2:
                 Ins_NOP_IMMEDIATE();
                 break;
+            case DCP_INDIRECTX_C3:
+            case DCP_ZEROPAGE_C7:
+            case DCP_ABSOLUTE_CF:
+                Ins_DCP();
+                break;
             case DEC_ZEROPAGE_C6:
             case DEC_ABSOLUTE_CE:
                 Ins_DEC();
@@ -3101,6 +3175,12 @@ void CPU6502::EmulateCycle()
             case CMP_ABSOLUTEY_D9:
             case CMP_ABSOLUTEX_DD:
                 Ins_CMP();
+                break;
+            case DCP_INDIRECTY_D3:
+            case DCP_ZEROPAGEX_D7:
+            case DCP_ABSOLUTEY_DB:
+            case DCP_ABSOLUTEX_DF:
+                Ins_DCP();
                 break;
             case NOP_ZEROPAGEX_D4:
                 Ins_NOP_ZEROPAGEX();
