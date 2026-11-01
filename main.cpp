@@ -371,7 +371,15 @@ enum Opcode
     DCP_INDIRECTY_D3 = 0XD3,
     DCP_ZEROPAGEX_D7 = 0XD7,
     DCP_ABSOLUTEY_DB = 0XDB,
-    DCP_ABSOLUTEX_DF = 0XDF
+    DCP_ABSOLUTEX_DF = 0XDF,
+
+    ISC_INDIRECTX_E3 = 0XE3,
+    ISC_ZEROPAGE_E7 = 0XE7,
+    ISC_ABSOLUTE_EF = 0XEF,
+    ISC_INDIRECTY_F3 = 0XF3,
+    ISC_ZEROPAGEX_F7 = 0XF7,
+    ISC_ABSOLUTEY_FB = 0XFB,
+    ISC_ABSOLUTEX_FF = 0XFF,
 };
 // clang-format on
 
@@ -604,14 +612,15 @@ void CPU6502::AbsoluteReadModWriteIns(){
             Ope_ROR();
             Ope_ADC();
         }else if(opcode == INC_ABSOLUTE_EE){
-            dataBus++;
-            isZero(dataBus);
-            isNegative(dataBus);
+            Ope_INC();
         }else if(opcode == DEC_ABSOLUTE_CE){
             Ope_DEC();
         }else if(opcode == DCP_ABSOLUTE_CF){
             Ope_DEC();
             Ope_CMP();
+        }else if(opcode == ISC_ABSOLUTE_EF){
+            Ope_INC();
+            Ope_SBC();
         }
         cycleCounter++;
     }else if(cycleCounter == 5){
@@ -682,14 +691,15 @@ void CPU6502::ZeroPageReadModWriteIns(){
             Ope_ROR();
             Ope_ADC();
         }else if(opcode == INC_ZEROPAGE_E6){
-            dataBus++;
-            isZero(dataBus);
-            isNegative(dataBus);
+            Ope_INC();
         }else if(opcode == DEC_ZEROPAGE_C6){
             Ope_DEC();
         }else if(opcode == DCP_ZEROPAGE_C7){
             Ope_DEC();
             Ope_CMP();
+        }else if(opcode == ISC_ZEROPAGE_E7){
+            Ope_INC();
+            Ope_SBC();
         }
         cycleCounter++;
     }else if(cycleCounter == 4){
@@ -766,9 +776,10 @@ void CPU6502::ZeroPageXReadModWriteIns() {
             Ope_DEC();
             Ope_CMP();
         }else if(opcode == INC_ZEROPAGEX_F6){
-            dataBus++;
-            isZero(dataBus);
-            isNegative(dataBus);
+            Ope_INC();
+        }else if(opcode == ISC_ZEROPAGEX_F7){
+            Ope_INC();
+            Ope_SBC();
         }
         cycleCounter++;
     }else if(cycleCounter == 5){
@@ -915,9 +926,10 @@ void CPU6502::AbsoluteXReadModWriteIns() {
             Ope_DEC();
             Ope_CMP();
         }else if(opcode == INC_ABSOLUTEX_FE){
-            dataBus++;
-            isZero(dataBus);
-            isNegative(dataBus);
+            Ope_INC();
+        }else if(opcode == ISC_ABSOLUTEX_FF){
+            Ope_INC();
+            Ope_SBC();
         }
         cycleCounter++;
     }else if(cycleCounter == 6){
@@ -1008,6 +1020,9 @@ void CPU6502::AbsoluteYReadModWriteIns() {
         }else if(opcode == DCP_ABSOLUTEY_DB){
             Ope_DEC();
             Ope_CMP();
+        }else if(opcode == ISC_ABSOLUTEY_FB){
+            Ope_INC();
+            Ope_SBC();
         }
         cycleCounter++;
     }else if(cycleCounter == 6){
@@ -1096,6 +1111,9 @@ void CPU6502::IndirectXReadModWriteIns() {
         }else if(opcode == DCP_INDIRECTX_C3){
             Ope_DEC();
             Ope_CMP();
+        }else if(opcode == ISC_INDIRECTX_E3){
+            Ope_INC();
+            Ope_SBC();
         }
         cycleCounter++;
     }else if(cycleCounter == 7){
@@ -1190,6 +1208,9 @@ void CPU6502::IndirectYReadModWriteIns() {
         }else if(opcode == DCP_INDIRECTY_D3){
             Ope_DEC();
             Ope_CMP();
+        }else if(opcode == ISC_INDIRECTY_F3){
+            Ope_INC();
+            Ope_SBC();
         }
         cycleCounter++;
     }else if(cycleCounter == 7){ 
@@ -1844,6 +1865,30 @@ void CPU6502::Ins_INC() {
     }
 }
 
+void CPU6502::Ope_INC(){
+    dataBus++;
+    isZero(dataBus);
+    isNegative(dataBus);
+}
+
+void CPU6502::Ins_ISC(){
+    if(opcode == ISC_INDIRECTX_E3){
+        IndirectXReadModWriteIns();
+    }else if(opcode == ISC_ZEROPAGE_E7){
+        ZeroPageReadModWriteIns();
+    }else if(opcode == ISC_ABSOLUTE_EF){
+        AbsoluteReadModWriteIns();
+    }else if(opcode == ISC_INDIRECTY_F3){
+        IndirectYReadModWriteIns();
+    }else if(opcode == ISC_ZEROPAGEX_F7){
+        ZeroPageXReadModWriteIns();
+    }else if(opcode == ISC_ABSOLUTEY_FB){
+        AbsoluteYReadModWriteIns();
+    }else if(opcode == ISC_ABSOLUTEX_FF){
+        AbsoluteXReadModWriteIns();
+    }
+}
+
 void CPU6502::Ins_INX() {
     // max 2 cycles
     registerX++;
@@ -2458,24 +2503,25 @@ void CPU6502::Ins_SBC() {
     }
 
     if(cycleCounter == cycleCounterMax){
-        short result = accumulator;
-        result -= dataBus;
-        if((statusFlag & CPUFLAGS::CARRY) != CPUFLAGS::CARRY){
-            result -= 1;
-        }
-        if(((result ^ accumulator) & (result ^ (~dataBus)) & 0x80) != 0){
-            SetFlag(CPUFLAGS::OVERFLOW);
-        }else{
-            ClearFlag(CPUFLAGS::OVERFLOW);
-        }
-        if(result >= 0){
-            SetFlag(CPUFLAGS::CARRY);
-        }else{
-            ClearFlag(CPUFLAGS::CARRY);
-        }
-        accumulator = (unsigned char) result;
-        isZero(accumulator);
-        isNegative(accumulator);
+        Ope_SBC();
+    }
+}
+
+void CPU6502::Ope_SBC(){
+    short result = accumulator;
+    result -= dataBus;
+    if((statusFlag & CPUFLAGS::CARRY) != CPUFLAGS::CARRY){
+        result -= 1;
+    }
+    if(((result ^ accumulator) & (result ^ (~dataBus)) & 0x80) != 0){
+        SetFlag(CPUFLAGS::OVERFLOW);
+    }else{
+        ClearFlag(CPUFLAGS::OVERFLOW);
+    }
+    if(result >= 0){
+        SetFlag(CPUFLAGS::CARRY);
+    }else{
+        ClearFlag(CPUFLAGS::CARRY);
     }
 }
 
@@ -3220,6 +3266,11 @@ void CPU6502::EmulateCycle()
             case NOP_IMMEDIATE_E2:
                 Ins_NOP_IMMEDIATE();
                 break;
+            case ISC_INDIRECTX_E3:
+            case ISC_ZEROPAGE_E7:
+            case ISC_ABSOLUTE_EF:
+                Ins_ISC();
+                break;
             case INC_ZEROPAGE_E6:
             case INC_ABSOLUTE_EE:
                 Ins_INC();
@@ -3246,6 +3297,12 @@ void CPU6502::EmulateCycle()
             case SBC_ABSOLUTEY_F9:
             case SBC_ABSOLUTEX_FD:
                 Ins_SBC();
+                break;
+            case ISC_INDIRECTY_F3:
+            case ISC_ZEROPAGEX_F7:
+            case ISC_ABSOLUTEY_FB:
+            case ISC_ABSOLUTEX_FF:
+                Ins_ISC();
                 break;
             case NOP_ZEROPAGEX_F4:
                 Ins_NOP_ZEROPAGEX();
